@@ -439,7 +439,7 @@ export const App: React.FC = () => {
       <footer className="border-t border-slate-900 bg-[#090d16] py-6 text-center text-xs text-slate-500 mb-16 sm:mb-0">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>
-            Uang Kas Kontrakan • Bayu, Apip, Ian, Ray, Dola, Vier (Admin) • Rp 5.000 / mgg (4 mgg / bln)
+            Uang Kas Kontrakan • Bayu, Apip, Ian, Ray, Dola, Vier (Admin) • Rp 5.000 / M (4 M / bln)
           </p>
           <div className="flex items-center space-x-3 text-slate-400">
             <button 

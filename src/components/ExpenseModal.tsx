@@ -260,11 +260,6 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   placeholder="5000"
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base text-white font-extrabold focus:outline-none focus:border-emerald-500 tracking-tight"
                 />
-                {category === 'Isi Ulang Air' && (
-                  <span className="absolute right-3 top-3 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                    Rp 5.000 / isi
-                  </span>
-                )}
               </div>
             </div>
 

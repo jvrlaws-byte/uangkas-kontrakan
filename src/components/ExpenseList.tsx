@@ -129,7 +129,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               Pengeluaran Kas
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Operasional: Air (Rp 5rb), Sabun, Tissue, Gas Masak & Lainnya.
+              Operasional: Air, Sabun, Tissue, Gas Masak & Lainnya.
             </p>
           </div>
 
@@ -173,10 +173,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 });
               }}
               className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/70 transition active:scale-95 shadow-sm"
-              title="Atur jadwal isi ulang air Rp 5.000"
+              title="Atur jadwal isi ulang air"
             >
               <Droplet className="w-3.5 h-3.5 mr-1 text-cyan-400" />
-              + Isi Air (Rp 5.000)
+              + Isi Air
             </button>
 
             {/* Sabun Cuci Piring */}
@@ -395,7 +395,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <thead className="bg-slate-800/60 text-slate-300 text-xs uppercase tracking-wider border-b border-slate-800">
             <tr>
               <th className="py-3 px-4 font-semibold">Hari & Tanggal</th>
-              <th className="py-3 px-3 font-semibold">Minggu Ke</th>
+              <th className="py-3 px-3 font-semibold">M</th>
               <th className="py-3 px-4 font-semibold">Kategori</th>
               <th className="py-3 px-4 font-semibold">PIC / Pembeli</th>
               <th className="py-3 px-4 font-semibold">Keterangan</th>

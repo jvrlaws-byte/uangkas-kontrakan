@@ -109,7 +109,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                   </span>
                   <div>
                     <span className="font-bold text-sm text-slate-200">{m.name}</span>
-                    <span className="text-[11px] text-emerald-400 block">Iuran: Rp 5.000 / mgg</span>
+                    <span className="text-[11px] text-emerald-400 block">Iuran: Rp 5.000 / M</span>
                   </div>
                 </div>
 

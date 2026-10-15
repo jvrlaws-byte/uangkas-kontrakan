@@ -134,7 +134,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
               Iuran Kas Mingguan
             </h3>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Rp 5.000 / mgg
+              Rp 5.000 / M
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -404,7 +404,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                           {isAllPaid ? (
                             <span className="text-emerald-400 font-medium">Lunas 4 Minggu ✓</span>
                           ) : (
-                            <span className="text-amber-400/90 font-medium">{4 - paidCount} mgg belum</span>
+                            <span className="text-amber-400/90 font-medium">{4 - paidCount} M belum</span>
                           )}
                         </div>
                       </div>

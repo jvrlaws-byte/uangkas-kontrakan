@@ -176,7 +176,7 @@ export const exportToPdf = (
 
   autoTable(doc, {
     startY: finalY + 13,
-    head: [['No', 'Hari & Tanggal', 'Mgg', 'Kategori', 'Nominal', 'PIC', 'Keterangan']],
+    head: [['No', 'Hari & Tanggal', 'M', 'Kategori', 'Nominal', 'PIC', 'Keterangan']],
     body: expenseTableRows,
     theme: 'grid',
     headStyles: {

@@ -34,9 +34,9 @@ export const exportToExcel = (
     ['Status', summary.martabak.isReady ? `TERCAPAI! (${summary.martabak.portions} Loyang Siap Beli)` : `Kurang Rp ${summary.martabak.remainingToTarget.toLocaleString('id-ID')}`],
     [],
     ['ATURAN KAS:'],
-    ['- Iuran mingguan: Rp 5.000 / mgg'],
+    ['- Iuran mingguan: Rp 5.000 / M'],
     ['- Anggota: Bayu, Apip, Ian, Ray, Dola, Vier'],
-    ['- Pengeluaran: Air (Rp 5.000), Sabun, Tissue, Gas Masak'],
+    ['- Pengeluaran: Air, Sabun, Tissue, Gas Masak'],
     ['- Target Martabak: Saldo ~Rp 50.000 untuk martabak bersama!'],
   ];
 
@@ -76,13 +76,13 @@ export const exportToExcel = (
       weekStatuses[2],
       weekStatuses[3],
       totalPaid,
-      isFullyPaid ? 'LUNAS (4 MGG)' : 'ADA TUNGGAKAN'
+      isFullyPaid ? 'LUNAS (4 M)' : 'ADA TUNGGAKAN'
     ];
   });
 
   const wsIuran = XLSX.utils.aoa_to_sheet([
     [`IURAN KAS - ${monthName.toUpperCase()} ${year}`],
-    ['Tarif: Rp 5.000 / mgg'],
+    ['Tarif: Rp 5.000 / M'],
     [],
     iuranHeader,
     ...iuranRows
@@ -94,7 +94,7 @@ export const exportToExcel = (
     'No',
     'Tanggal',
     'Hari',
-    'Mgg',
+    'M',
     'Kategori',
     'Nominal (Rp)',
     'PIC',

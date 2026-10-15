@@ -245,7 +245,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                 <thead className="bg-slate-800 text-slate-300 uppercase sticky top-0">
                   <tr>
                     <th className="py-2.5 px-3">Tanggal</th>
-                    <th className="py-2.5 px-2">Mgg</th>
+                    <th className="py-2.5 px-2">M</th>
                     <th className="py-2.5 px-3">Kategori</th>
                     <th className="py-2.5 px-3">PIC</th>
                     <th className="py-2.5 px-3">Ket</th>
