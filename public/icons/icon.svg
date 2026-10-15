@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+    <linearGradient id="martabak" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded Background -->
+  <rect width="512" height="512" rx="128" fill="url(#bg)"/>
+
+  <!-- Kontrakan / House Roof -->
+  <polygon points="256,70 90,205 130,205 130,370 382,370 382,205 422,205" fill="#ffffff" opacity="0.15"/>
+  <polygon points="256,90 115,205 145,205 145,360 367,360 367,205 397,205" fill="#ffffff" opacity="0.95"/>
+
+  <!-- Door / Center Vault -->
+  <rect x="216" y="240" width="80" height="120" rx="12" fill="#16a34a"/>
+
+  <!-- Golden Coin -->
+  <circle cx="256" cy="190" r="50" fill="url(#gold)" stroke="#ca8a04" stroke-width="4"/>
+  <text x="256" y="204" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="#713f12" text-anchor="middle">Rp</text>
+
+  <!-- Martabak Badge at bottom right -->
+  <g transform="translate(320, 310)">
+    <circle cx="50" cy="50" r="52" fill="#ffffff"/>
+    <circle cx="50" cy="50" r="46" fill="url(#martabak)"/>
+    <!-- Martabak cut slices & sesame/chocolate sprinkles -->
+    <path d="M 20,45 Q 50,25 80,45 L 80,60 Q 50,80 20,60 Z" fill="#451a03"/>
+    <circle cx="38" cy="45" r="3" fill="#fef08a"/>
+    <circle cx="52" cy="40" r="3" fill="#fef08a"/>
+    <circle cx="64" cy="48" r="3" fill="#fef08a"/>
+    <circle cx="45" cy="55" r="2.5" fill="#fef08a"/>
+    <!-- Mini text -->
+    <text x="50" y="86" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#ffffff" text-anchor="middle">🥞</text>
+  </g>
+</svg>

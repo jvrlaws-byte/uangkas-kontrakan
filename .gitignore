@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Production build output
+# (Built automatically during deployment via npm run build)
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# SQLite WAL and temp files
+server/data/*.db-wal
+server/data/*.db-shm
+server/data/*.db-journal
+
+# Environment variables
+.env
+.env.local
