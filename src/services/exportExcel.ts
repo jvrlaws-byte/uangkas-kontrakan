@@ -18,26 +18,26 @@ export const exportToExcel = (
 
   // 1. SHEET RINGKASAN
   const ringkasanData = [
-    ['LAPORAN KEUANGAN UANG KAS KONTRAKAN'],
+    ['LAPORAN KAS KONTRAKAN'],
     ['Periode:', `${monthName} ${year}`],
     ['Tanggal Cetak:', new Date().toLocaleString('id-ID')],
     [],
-    ['RINGKASAN ARUS KAS BULANAN', 'NOMINAL (IDR)'],
-    ['Total Pemasukan Kas', summary.monthlyIncome],
-    ['Total Pengeluaran Kas', summary.monthlyExpense],
-    ['Sisa Saldo Kas Bersih', summary.currentBalance],
-    ['Estimasi Tunggakan Kas Belum Bayar', summary.unpaidAmount],
+    ['RINGKASAN KAS', 'NOMINAL (IDR)'],
+    ['Pemasukan', summary.monthlyIncome],
+    ['Pengeluaran', summary.monthlyExpense],
+    ['Sisa Saldo', summary.currentBalance],
+    ['Estimasi Tunggakan', summary.unpaidAmount],
     [],
-    ['STATUS TARGET MARTABAK (Rp 50.000)'],
+    ['TARGET MARTABAK'],
     ['Target Martabak', summary.martabak.target],
-    ['Saldo Tersedia Saat Ini', summary.martabak.currentBalance],
-    ['Status Pencapaian', summary.martabak.isReady ? `TERCAPAI! (${summary.martabak.portions} Loyang Martabak Siap Beli)` : `Kurang Rp ${summary.martabak.remainingToTarget.toLocaleString('id-ID')}`],
+    ['Saldo Tersedia', summary.martabak.currentBalance],
+    ['Status', summary.martabak.isReady ? `TERCAPAI! (${summary.martabak.portions} Loyang Siap Beli)` : `Kurang Rp ${summary.martabak.remainingToTarget.toLocaleString('id-ID')}`],
     [],
-    ['ATURAN KAS KONTRAKAN:'],
-    ['- Iuran mingguan: Rp 5.000 per orang per minggu'],
+    ['ATURAN KAS:'],
+    ['- Iuran mingguan: Rp 5.000 / mgg'],
     ['- Anggota: Bayu, Apip, Ian, Ray, Dola, Vier'],
-    ['- Pengeluaran Kas: Khusus Isi Ulang Air (Rp 5.000), Sabun Cuci Piring, Tissue, Gas Masak, dan Lain-lain'],
-    ['- Target Martabak: Setiap ada saldo menganggur ~Rp 50.000 siap dibelikan martabak bersama!'],
+    ['- Pengeluaran: Air (Rp 5.000), Sabun, Tissue, Gas Masak'],
+    ['- Target Martabak: Saldo ~Rp 50.000 untuk martabak bersama!'],
   ];
 
   const wsRingkasan = XLSX.utils.aoa_to_sheet(ringkasanData);
@@ -81,31 +81,31 @@ export const exportToExcel = (
   });
 
   const wsIuran = XLSX.utils.aoa_to_sheet([
-    [`REKAP PEMBAYARAN IURAN KAS KONTRAKAN - ${monthName.toUpperCase()} ${year}`],
-    ['Tarif per minggu: Rp 5.000 per orang'],
+    [`IURAN KAS - ${monthName.toUpperCase()} ${year}`],
+    ['Tarif: Rp 5.000 / mgg'],
     [],
     iuranHeader,
     ...iuranRows
   ]);
-  XLSX.utils.book_append_sheet(workbook, wsIuran, 'Iuran Anggota');
+  XLSX.utils.book_append_sheet(workbook, wsIuran, 'Iuran');
 
-  // 3. SHEET PENGELUARAN LENGKAP
+  // 3. SHEET PENGELUARAN
   const pengeluaranHeader = [
     'No',
     'Tanggal',
     'Hari',
-    'Minggu Ke',
+    'Mgg',
     'Kategori',
     'Nominal (Rp)',
-    'Penanggung Jawab (PIC)',
-    'Keterangan'
+    'PIC',
+    'Ket'
   ];
 
   const pengeluaranRows = expenses.map((exp, idx) => [
     idx + 1,
     exp.date,
     exp.day_name,
-    `Minggu ${exp.week}`,
+    `M${exp.week}`,
     exp.category,
     exp.amount,
     exp.pic || '-',
@@ -113,15 +113,14 @@ export const exportToExcel = (
   ]);
 
   const wsPengeluaran = XLSX.utils.aoa_to_sheet([
-    [`RINCIAN PENGELUARAN UANG KAS KONTRAKAN - ${monthName.toUpperCase()} ${year}`],
-    ['Mencatat spesifik hari, tanggal, dan keperluan'],
+    [`PENGELUARAN - ${monthName.toUpperCase()} ${year}`],
     [],
     pengeluaranHeader,
     ...pengeluaranRows,
     [],
-    ['TOTAL PENGELUARAN', '', '', '', '', summary.monthlyExpense]
+    ['TOTAL', '', '', '', '', summary.monthlyExpense]
   ]);
-  XLSX.utils.book_append_sheet(workbook, wsPengeluaran, 'Rincian Pengeluaran');
+  XLSX.utils.book_append_sheet(workbook, wsPengeluaran, 'Pengeluaran');
 
   // Trigger browser download
   const fileName = `Laporan_Kas_Kontrakan_${monthName}_${year}.xlsx`;

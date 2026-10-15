@@ -259,20 +259,21 @@ app.post('/api/admin/verify', (req, res) => {
   if (now < rateData.lockUntil) {
     const waitSec = Math.ceil((rateData.lockUntil - now) / 1000);
     return res.status(429).json({ 
-      error: `PIN dikunci sementara karena beberapa kali salah! Coba lagi dalam ${waitSec} detik.` 
+      error: `PIN dikunci sementara karena salah 5x. Coba lagi dalam ${waitSec} detik.` 
     });
   }
 
-  const { pin } = req.body;
-  if (!pin || typeof pin !== 'string') {
-    return res.status(400).json({ error: 'PIN tidak valid' });
+  const rawPin = req.body?.pin;
+  const pin = String(rawPin !== undefined && rawPin !== null ? rawPin : '').trim();
+  if (!pin) {
+    return res.status(400).json({ error: 'PIN tidak boleh kosong' });
   }
 
-  const currentPin = String(getSetting('admin_pin', '151515'));
+  const currentPin = String(getSetting('admin_pin', '151515')).trim();
   
   // Timing-safe comparison to prevent side-channel timing attacks
-  const pinBuffer = Buffer.from(pin);
-  const currentPinBuffer = Buffer.from(currentPin);
+  const pinBuffer = Buffer.from(pin, 'utf8');
+  const currentPinBuffer = Buffer.from(currentPin, 'utf8');
   const isMatch = pinBuffer.length === currentPinBuffer.length && crypto.timingSafeEqual(pinBuffer, currentPinBuffer);
 
   if (isMatch) {
@@ -293,16 +294,18 @@ app.post('/api/admin/verify', (req, res) => {
 
   rateData.attempts += 1;
   if (rateData.attempts >= 5) {
-    rateData.lockUntil = now + 15 * 60 * 1000; // Lock for 15 minutes
+    rateData.lockUntil = now + 30 * 1000; // Lock for 30 seconds
+    rateData.attempts = 0;
     loginRateLimit.set(ip, rateData);
     return res.status(429).json({ 
-      error: 'PIN salah 5x berturut-turut! Akses admin dari IP ini dikunci selama 15 menit.' 
+      error: 'PIN salah 5x berturut-turut. Akses admin dikunci selama 30 detik.' 
     });
   }
 
   loginRateLimit.set(ip, rateData);
+  const remaining = 5 - rateData.attempts;
   return res.status(401).json({ 
-    error: `PIN Admin salah! Sisa percobaan: ${5 - rateData.attempts}` 
+    error: `PIN Admin salah! Sisa percobaan: ${remaining}x.` 
   });
 });
 

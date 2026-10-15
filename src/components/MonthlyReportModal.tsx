@@ -105,10 +105,10 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
 
             <div>
               <h3 className="font-extrabold text-sm sm:text-lg text-white truncate max-w-[170px] sm:max-w-none">
-                Laporan Kas Kontrakan
+                Laporan Kas
               </h3>
               <span className="text-[10px] sm:text-xs text-emerald-400 font-semibold block">
-                {monthName} {year} (4 Minggu)
+                {monthName} {year}
               </span>
             </div>
           </div>
@@ -149,7 +149,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
           {/* Financial Summary KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 bg-slate-850 p-3.5 sm:p-4 rounded-2xl border border-slate-800">
             <div>
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Pemasukan (4 Mgg)</span>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Pemasukan</span>
               <div className="text-base sm:text-lg font-extrabold text-blue-400 mt-0.5">
                 {formatRp(summary.monthlyIncome)}
               </div>
@@ -161,30 +161,30 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
               </div>
             </div>
             <div>
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Sisa Saldo Kas</span>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Saldo</span>
               <div className="text-base sm:text-lg font-extrabold text-emerald-400 mt-0.5">
                 {formatRp(summary.currentBalance)}
               </div>
             </div>
             <div>
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Target Martabak (50k)</span>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase">Martabak</span>
               <div className="text-xs sm:text-sm font-bold text-amber-400 mt-1">
-                {summary.martabak.isReady ? `Siap Beli! (${summary.martabak.portions}x) 🥞` : `${summary.martabak.progress}%`}
+                {summary.martabak.isReady ? `Siap Beli! 🥞` : `${summary.martabak.progress}%`}
               </div>
             </div>
           </div>
 
-          {/* Section 1: Member Contribution Table Preview (Strictly 4 Weeks) */}
+          {/* Section 1: Member Contribution Table Preview */}
           <div className="space-y-2">
             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center">
               <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-400" />
-              1. Rekap Iuran Mingguan Anggota (Rp 5.000 / mgg • 4 Minggu)
+              1. Iuran Kas
             </h4>
             <div className="overflow-x-auto rounded-xl border border-slate-800">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-800 text-slate-300 uppercase">
                   <tr>
-                    <th className="py-2.5 px-3">Nama Anggota</th>
+                    <th className="py-2.5 px-3">Nama</th>
                     <th className="py-2.5 px-2 text-center">M1</th>
                     <th className="py-2.5 px-2 text-center">M2</th>
                     <th className="py-2.5 px-2 text-center">M3</th>
@@ -205,7 +205,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                       <tr key={row.member.id}>
                         <td className="py-2 px-3 font-semibold text-white">
                           {row.member.name}
-                          {row.member.name.toLowerCase() === 'javier' && (
+                          {row.member.name.toLowerCase() === 'vier' && (
                             <span className="ml-1 text-[10px] text-amber-400 font-bold">(Admin)</span>
                           )}
                         </td>
@@ -238,17 +238,17 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
           <div className="space-y-2">
             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center">
               <Receipt className="w-4 h-4 mr-1.5 text-rose-400" />
-              2. Rincian Pengeluaran Spesifik (Air Rp 5.000, Sabun, Tissue, Gas)
+              2. Pengeluaran
             </h4>
             <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-56">
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-800 text-slate-300 uppercase sticky top-0">
                   <tr>
-                    <th className="py-2.5 px-3">Hari & Tanggal</th>
+                    <th className="py-2.5 px-3">Tanggal</th>
                     <th className="py-2.5 px-2">Mgg</th>
                     <th className="py-2.5 px-3">Kategori</th>
                     <th className="py-2.5 px-3">PIC</th>
-                    <th className="py-2.5 px-3">Keterangan</th>
+                    <th className="py-2.5 px-3">Ket</th>
                     <th className="py-2.5 px-3 text-right">Nominal</th>
                   </tr>
                 </thead>
@@ -256,7 +256,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                   {expenses.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-4 text-center text-slate-500">
-                        Tidak ada catatan pengeluaran di bulan ini.
+                        Belum ada pengeluaran bulan ini.
                       </td>
                     </tr>
                   ) : (
@@ -285,13 +285,13 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
         {/* Sticky Mobile & Desktop Footer Navigation */}
         <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-850 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2.5 pb-safe">
           
-          {/* Main Close Button (Easily reachable on Android with thumb!) */}
+          {/* Main Close Button */}
           <button
             onClick={onClose}
             className="w-full sm:w-auto order-2 sm:order-1 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 transition flex items-center justify-center space-x-1.5"
           >
             <ArrowLeft className="w-4 h-4 text-emerald-400" />
-            <span>Tutup & Kembali ke Beranda</span>
+            <span>Tutup</span>
           </button>
 
           {/* Download Buttons */}
@@ -301,14 +301,14 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
               className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white transition flex items-center justify-center shadow-md shadow-emerald-600/20"
             >
               <FileSpreadsheet className="w-4 h-4 mr-1.5" />
-              Unduh Excel
+              Excel
             </button>
             <button
               onClick={handleDownloadPdf}
               className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-500 active:scale-95 text-white transition flex items-center justify-center shadow-md shadow-blue-600/20"
             >
               <FileText className="w-4 h-4 mr-1.5" />
-              Unduh PDF
+              PDF
             </button>
           </div>
 

@@ -23,7 +23,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pin) {
+    const cleanPin = pin.trim();
+    if (!cleanPin) {
       setError('Masukkan PIN Admin');
       return;
     }
@@ -32,12 +33,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     setError('');
 
     try {
-      const res = await api.verifyAdminPin(pin);
+      const res = await api.verifyAdminPin(cleanPin);
       onLoginSuccess(res.adminName || 'Vier');
       setPin('');
       onClose();
     } catch (err: any) {
-      setError(err.message || 'PIN Admin salah! (Default PIN: 151515)');
+      setError(err.message || 'PIN Admin salah');
     } finally {
       setIsSubmitting(false);
     }
@@ -58,7 +59,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 Masuk sebagai {adminName}
               </h3>
               <span className="text-[11px] text-emerald-400 font-semibold block">
-                Hak Akses Admin & Bendahara
+                Akses Admin
               </span>
             </div>
           </div>
@@ -71,17 +72,18 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         </div>
 
         <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-          Teman-teman kontrakan hanya memiliki akses untuk <strong>melihat dashboard</strong>. Masukkan PIN Admin untuk mencatat atau mengubah data uang kas.
+          Masukkan PIN untuk membuka akses admin.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              PIN Admin {adminName}
+              PIN Admin
             </label>
             <div className="relative">
               <input
                 type="password"
+                inputMode="numeric"
                 maxLength={12}
                 autoFocus
                 required
@@ -90,7 +92,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   setPin(e.target.value);
                   setError('');
                 }}
-                placeholder="Masukkan PIN (Default: 151515)"
+                placeholder="Masukkan PIN"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-3 text-base text-white tracking-widest text-center font-mono focus:outline-none focus:border-emerald-500"
               />
               <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
@@ -100,9 +102,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 {error}
               </p>
             )}
-            <span className="text-[10px] text-slate-500 block text-center mt-1">
-              *PIN bawaan: <strong>151515</strong>
-            </span>
           </div>
 
           <div className="flex items-center space-x-2 pt-2">

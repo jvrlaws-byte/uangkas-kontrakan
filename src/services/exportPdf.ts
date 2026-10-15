@@ -30,11 +30,11 @@ export const exportToPdf = (
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('LAPORAN KEUANGAN UANG KAS KONTRAKAN', 14, 11);
+  doc.text('LAPORAN KAS KONTRAKAN', 14, 11);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Periode: ${monthName} ${year}  |  Aturan: Rp 5.000 / minggu per orang`, 14, 18);
+  doc.text(`Periode: ${monthName} ${year}`, 14, 18);
   doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}`, 196, 18, { align: 'right' });
 
   // Reset text color
@@ -43,7 +43,7 @@ export const exportToPdf = (
   // Financial Summary Cards
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text('RINGKASAN KEUANGAN BULAN INI', 14, 34);
+  doc.text('RINGKASAN KAS', 14, 34);
 
   // Box 1: Pemasukan
   doc.setFillColor(240, 253, 244); // green-50
@@ -52,7 +52,7 @@ export const exportToPdf = (
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(21, 128, 61);
-  doc.text('Total Pemasukan Kas', 16, 42);
+  doc.text('Pemasukan', 16, 42);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(formatRp(summary.monthlyIncome), 16, 51);
@@ -64,7 +64,7 @@ export const exportToPdf = (
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(185, 28, 28);
-  doc.text('Total Pengeluaran Kas', 62, 42);
+  doc.text('Pengeluaran', 62, 42);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(formatRp(summary.monthlyExpense), 62, 51);
@@ -76,7 +76,7 @@ export const exportToPdf = (
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(29, 78, 216);
-  doc.text('Sisa Saldo Kas Bersih', 108, 42);
+  doc.text('Sisa Saldo', 108, 42);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(formatRp(summary.currentBalance), 108, 51);
@@ -88,7 +88,7 @@ export const exportToPdf = (
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(180, 83, 9);
-  doc.text('Target Martabak (50k)', 156, 42);
+  doc.text('Target Martabak', 156, 42);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(summary.martabak.isReady ? `Siap Beli! (${summary.martabak.portions}x)` : `${summary.martabak.progress}%`, 156, 51);
@@ -97,7 +97,7 @@ export const exportToPdf = (
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
-  doc.text('1. REKAP PEMBAYARAN IURAN ANGGOTA (Rp 5.000 / MINGGU)', 14, 65);
+  doc.text('1. IURAN KAS', 14, 65);
 
   const memberTableRows = matrix.map((row, idx) => {
     let total = 0;
@@ -110,7 +110,7 @@ export const exportToPdf = (
       if (row.weeks[w]?.is_paid) total += row.weeks[w]?.amount || 5000;
     });
 
-    const status = total >= 20000 ? 'LUNAS (4 MGG)' : `Kurang ${formatRp(20000 - total)}`;
+    const status = total >= 20000 ? 'LUNAS' : `Kurang ${formatRp(20000 - total)}`;
 
     return [
       idx + 1,
@@ -126,7 +126,7 @@ export const exportToPdf = (
 
   autoTable(doc, {
     startY: 68,
-    head: [['No', 'Anggota', 'M1', 'M2', 'M3', 'M4', 'Total Bayar', 'Status']],
+    head: [['No', 'Anggota', 'M1', 'M2', 'M3', 'M4', 'Total', 'Status']],
     body: memberTableRows,
     theme: 'grid',
     headStyles: {
@@ -158,7 +158,7 @@ export const exportToPdf = (
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
-  doc.text('2. RINCIAN PENGELUARAN KAS KONTRAKAN (SPESIFIK HARI & TANGGAL)', 14, finalY + 10);
+  doc.text('2. PENGELUARAN', 14, finalY + 10);
 
   const expenseTableRows = expenses.map((exp, idx) => [
     idx + 1,
