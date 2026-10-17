@@ -336,13 +336,37 @@ const recordSecurityAlert = (req, actionText) => {
   }
 };
 
+const getTokenSecret = () => {
+  const currentPin = String(process.env.ADMIN_PIN || getSetting('admin_pin', '101010')).trim();
+  return crypto.createHash('sha256').update(`uangkas-cikarang-secret-${currentPin}`).digest('hex');
+};
+
+const createStatelessAdminToken = (expiresAt) => {
+  const payload = `admin:${expiresAt}`;
+  const sig = crypto.createHmac('sha256', getTokenSecret()).update(payload).digest('hex');
+  return `${expiresAt}.${sig}`;
+};
+
+const isStatelessTokenValid = (token) => {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return false;
+  const [expiresStr, sig] = token.split('.');
+  const expiresAt = Number(expiresStr);
+  if (!expiresAt || Date.now() > expiresAt) return false;
+  const expectedSig = crypto.createHmac('sha256', getTokenSecret()).update(`admin:${expiresAt}`).digest('hex');
+  const sigBuf = Buffer.from(sig, 'utf8');
+  const expBuf = Buffer.from(expectedSig, 'utf8');
+  return sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+};
+
 // Helper to check if a request carries a valid Admin token
 const isAdminRequest = (req) => {
   const token = req.headers['x-admin-token'];
+  if (!token) return false;
+  if (isStatelessTokenValid(token)) return true;
   const activeToken = getSetting('active_admin_token', null);
   const tokenExpires = Number(getSetting('admin_token_expires', 0));
   const now = Date.now();
-  return Boolean(token && activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires));
+  return Boolean(activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires));
 };
 
 // API: Admin Authentication (Vier) with Per-IP Brute-Force & Timing Attack Protection
@@ -364,7 +388,7 @@ app.post('/api/admin/verify', (req, res) => {
     return res.status(400).json({ error: 'PIN tidak boleh kosong' });
   }
 
-  const currentPin = String(getSetting('admin_pin', '101010')).trim();
+  const currentPin = String(process.env.ADMIN_PIN || getSetting('admin_pin', '101010')).trim();
   
   // Timing-safe comparison to prevent side-channel timing attacks
   const pinBuffer = Buffer.from(pin, 'utf8');
@@ -373,9 +397,8 @@ app.post('/api/admin/verify', (req, res) => {
 
   if (isMatch) {
     loginRateLimit.delete(ip);
-    // Generate cryptographically secure 256-bit token
-    const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = now + 14 * 24 * 60 * 60 * 1000; // Valid for 14 days
+    const token = createStatelessAdminToken(expiresAt);
     
     setSetting('active_admin_token', token);
     setSetting('admin_token_expires', String(expiresAt));

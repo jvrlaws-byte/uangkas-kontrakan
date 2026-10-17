@@ -44,7 +44,12 @@ export const AndroidConnectModal: React.FC<AndroidConnectModalProps> = ({
 
   if (!isOpen) return null;
 
-  const mobileUrl = systemInfo?.mobileUrl || window.location.origin;
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+  const mobileUrl = isLocalhost
+    ? systemInfo?.mobileUrl || window.location.origin
+    : window.location.origin;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(mobileUrl);
