@@ -146,16 +146,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-lg bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-5 duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-sm">
+      <div className="relative w-full max-w-lg bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-200">
         
         {/* Mobile Swipe / Drag Handle (Poco X7 Pro ergonomics) */}
-        <div className="pt-3 pb-1 flex justify-center sm:hidden bg-slate-850">
+        <div className="pt-2.5 pb-1 flex justify-center sm:hidden bg-slate-850 shrink-0">
           <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-850">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-850 shrink-0">
           <h3 className="font-bold text-base sm:text-lg text-white flex items-center">
             {editingExpense ? '✏️ Edit Pengeluaran' : '📝 Catat Pengeluaran Kas'}
           </h3>
@@ -168,7 +168,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           
           {/* Category Chips (Spesifik: Isi Ulang Air, Sabun Cuci Piring, Tissue, Gas, Martabak, Lain-lain) */}
           <div>

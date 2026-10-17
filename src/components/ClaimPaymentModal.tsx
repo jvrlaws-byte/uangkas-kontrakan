@@ -111,15 +111,15 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+      <div className="relative w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-850">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-850 shrink-0">
           <div className="flex items-center space-x-2">
             <button
               onClick={onClose}
@@ -149,7 +149,7 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
         </div>
 
         {isSuccess ? (
-          <div className="p-8 text-center space-y-3">
+          <div className="p-8 text-center space-y-3 overflow-y-auto">
             <div className="w-14 h-14 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center animate-bounce">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -159,7 +159,7 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain pb-safe">
             
             {/* 1. Pilih Nama Teman */}
             <div>

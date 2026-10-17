@@ -1,4 +1,4 @@
-import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem } from '../types';
+import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem } from '../types';
 
 const API_BASE = '/api';
 
@@ -91,6 +91,38 @@ export const api = {
       localStorage.removeItem('uangkas_admin_token');
       localStorage.setItem('uangkas_is_admin', 'false');
     }
+  },
+
+  // Security Alerts & Unauthorized Attempt Notification
+  async reportUnauthorizedAttempt(action: string): Promise<void> {
+    try {
+      await fetch(`${API_BASE}/security/report-attempt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+    } catch {
+      // Silent fail on network error
+    }
+  },
+
+  async getSecurityAlerts(): Promise<SecurityAlertItem[]> {
+    try {
+      const res = await fetch(`${API_BASE}/security/alerts`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) return [];
+      return await res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  async clearSecurityAlerts(): Promise<void> {
+    await fetch(`${API_BASE}/security/alerts/clear`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
   },
 
   // Members

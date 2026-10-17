@@ -23,7 +23,7 @@ interface WeeklyKasMatrixProps {
   pendingCount?: number;
   onTogglePayment: (memberId: number, week: number, isPaid: boolean) => Promise<void>;
   onBatchPayMonth: (memberId: number) => Promise<void>;
-  onRequestAdminLogin: () => void;
+  onRequestAdminLogin: (attemptedAction?: string) => void;
   onOpenClaimModal: (memberId?: number, week?: number) => void;
   onOpenVerificationModal: () => void;
   onQuickVerify?: (id: string, approve: boolean) => Promise<void>;
@@ -76,11 +76,21 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
     } else {
       // Roommate / Viewer mode
       if (isPending) {
-        alert(`Pembayaran Minggu ${week} untuk ${memberName} sudah dilaporkan dan sedang menunggu verifikasi dari Vier.`);
+        const wantVerify = window.confirm(
+          `Pembayaran M${week} (${memberName}) sedang menunggu verifikasi Vier.\n\nKlik OK jika lo adalah Vier (Admin) dan ingin memverifikasi.`
+        );
+        if (wantVerify) {
+          onRequestAdminLogin(`Mencoba memverifikasi pembayaran M${week} (${memberName}) tanpa akses Admin`);
+        }
         return;
       }
       if (isPaid) {
-        alert(`Iuran Minggu ${week} untuk ${memberName} sudah Lunas dan terverifikasi oleh Vier.`);
+        const wantModify = window.confirm(
+          `Iuran M${week} untuk ${memberName} sudah Lunas & Terverifikasi.\n\nKlik OK jika ingin mengubah status data ini (Khusus Admin Vier).`
+        );
+        if (wantModify) {
+          onRequestAdminLogin(`Mencoba mengubah status Lunas M${week} (${memberName})`);
+        }
         return;
       }
       // Unpaid -> open claim modal with pre-selected member & week
@@ -90,7 +100,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
 
   const handleBatch = async (memberId: number) => {
     if (!isAdmin) {
-      onRequestAdminLogin();
+      onRequestAdminLogin('Mencoba mengubah status Lunas 1 Bulan penuh');
       return;
     }
     setLoadingCell(`batch_${memberId}`);
@@ -105,7 +115,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
   const weeks = [1, 2, 3, 4];
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden">
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden w-full">
       
       {/* Vier Pending Verification Notice Banner */}
       {isAdmin && pendingCount > 0 && (
@@ -514,7 +524,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
         </div>
         {!isAdmin && (
           <button
-            onClick={onRequestAdminLogin}
+            onClick={() => onRequestAdminLogin()}
             className="text-emerald-400 hover:underline font-semibold flex items-center"
           >
             <Lock className="w-3 h-3 mr-1" /> Login Vier untuk Verifikasi

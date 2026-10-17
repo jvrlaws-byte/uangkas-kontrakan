@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Lock, KeyRound, ShieldCheck, UserCheck } from 'lucide-react';
+import { X, Lock, KeyRound, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
 
 interface AdminLoginModalProps {
@@ -7,6 +7,7 @@ interface AdminLoginModalProps {
   onClose: () => void;
   onLoginSuccess: (adminName: string) => void;
   adminName?: string;
+  unauthorizedNotice?: string;
 }
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
@@ -14,6 +15,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onLoginSuccess,
   adminName = 'Vier',
+  unauthorizedNotice,
 }) => {
   const [pin, setPin] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -46,12 +48,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-5 sm:p-6 animate-in zoom-in-95 duration-150">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3.5">
           <div className="flex items-center space-x-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
               <KeyRound className="w-5 h-5" />
             </div>
             <div>
@@ -70,6 +72,16 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {unauthorizedNotice && (
+          <div className="mb-3.5 p-3 rounded-xl bg-rose-950/50 border border-rose-500/40 flex items-start space-x-2 text-xs text-rose-200">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="leading-snug">
+              <strong className="text-rose-300 block mb-0.5">Akses Dibatasi!</strong>
+              {unauthorizedNotice} Notifikasi aktivitas ini telah dikirim ke Admin ({adminName}).
+            </div>
+          </div>
+        )}
 
         <p className="text-xs text-slate-400 mb-4 leading-relaxed">
           Masukkan PIN untuk membuka akses admin.

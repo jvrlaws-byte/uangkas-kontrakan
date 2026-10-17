@@ -23,7 +23,7 @@ interface ExpenseListProps {
   onOpenEditModal: (expense: Expense) => void;
   onDeleteExpense: (id: string) => Promise<void>;
   onQuickAdd: (category: string, amount: number, dayName?: string, notes?: string) => Promise<void>;
-  onRequestAdminLogin: () => void;
+  onRequestAdminLogin: (attemptedAction?: string) => void;
 }
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({
@@ -69,7 +69,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   const handleDelete = async (id: string) => {
     if (!isAdmin) {
-      onRequestAdminLogin();
+      onRequestAdminLogin('Mencoba menghapus data pengeluaran kas');
       return;
     }
     if (window.confirm('Yakin ingin menghapus catatan pengeluaran ini?')) {
@@ -84,18 +84,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   const handleEdit = (exp: Expense) => {
     if (!isAdmin) {
-      onRequestAdminLogin();
+      onRequestAdminLogin(`Mencoba mengedit pengeluaran (${exp.category})`);
       return;
     }
     onOpenEditModal(exp);
-  };
-
-  const handleShortcutClick = (category: string, amount: number, dayName?: string, notes?: string) => {
-    if (!isAdmin) {
-      onRequestAdminLogin();
-      return;
-    }
-    onQuickAdd(category, amount, dayName, notes);
   };
 
   const getCategoryBadge = (category: string) => {
@@ -118,7 +110,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden">
+    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden w-full">
       
       {/* Header & Quick Action Buttons */}
       <div className="p-4 sm:p-6 border-b border-slate-800">
@@ -143,8 +135,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             </button>
           ) : (
             <button
-              onClick={onRequestAdminLogin}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600 transition"
+              onClick={() => onRequestAdminLogin('Mencoba klik tombol + Catat Pengeluaran')}
+              className="w-full sm:w-auto inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600 transition active:scale-95"
             >
               <Lock className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
               Masuk Admin untuk Catat
@@ -157,13 +149,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
             ⚡ Shortcut Rutin:
           </span>
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
             
             {/* Hanya 1 Tombol Air Rp 5.000: Buka modal agar user leluasa mengatur jadwalnya kapan */}
             <button
               onClick={() => {
                 if (!isAdmin) {
-                  onRequestAdminLogin();
+                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Isi Air');
                   return;
                 }
                 onOpenAddModal({
@@ -172,18 +164,18 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   notes: 'Isi ulang air galon',
                 });
               }}
-              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/70 transition active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/70 transition active:scale-95 shadow-sm truncate"
               title="Atur jadwal isi ulang air"
             >
-              <Droplet className="w-3.5 h-3.5 mr-1 text-cyan-400" />
-              + Isi Air
+              <Droplet className="w-3.5 h-3.5 mr-1 text-cyan-400 shrink-0" />
+              <span className="truncate">+ Isi Air</span>
             </button>
 
             {/* Sabun Cuci Piring */}
             <button
               onClick={() => {
                 if (!isAdmin) {
-                  onRequestAdminLogin();
+                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Sabun Cuci Piring');
                   return;
                 }
                 onOpenAddModal({
@@ -192,17 +184,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   notes: 'Beli sabun cuci piring (Sunlight/Mama Lemon)',
                 });
               }}
-              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 border border-teal-800/70 transition active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 border border-teal-800/70 transition active:scale-95 shadow-sm truncate"
             >
-              <ShoppingBag className="w-3.5 h-3.5 mr-1 text-teal-400" />
-              + Sabun Cuci Piring
+              <ShoppingBag className="w-3.5 h-3.5 mr-1 text-teal-400 shrink-0" />
+              <span className="truncate">+ Sabun Cuci</span>
             </button>
 
             {/* Tissue */}
             <button
               onClick={() => {
                 if (!isAdmin) {
-                  onRequestAdminLogin();
+                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Tissue');
                   return;
                 }
                 onOpenAddModal({
@@ -211,17 +203,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   notes: 'Beli tissue',
                 });
               }}
-              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/70 transition active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-800/70 transition active:scale-95 shadow-sm truncate"
             >
-              <Layers className="w-3.5 h-3.5 mr-1 text-indigo-400" />
-              + Tissue
+              <Layers className="w-3.5 h-3.5 mr-1 text-indigo-400 shrink-0" />
+              <span className="truncate">+ Tissue</span>
             </button>
 
             {/* Gas Masak */}
             <button
               onClick={() => {
                 if (!isAdmin) {
-                  onRequestAdminLogin();
+                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Gas Masak');
                   return;
                 }
                 onOpenAddModal({
@@ -230,10 +222,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   notes: 'Refill gas masak 3kg',
                 });
               }}
-              className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-orange-950/60 hover:bg-orange-900/80 text-orange-300 border border-orange-800/70 transition active:scale-95 shadow-sm"
+              className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-orange-950/60 hover:bg-orange-900/80 text-orange-300 border border-orange-800/70 transition active:scale-95 shadow-sm truncate"
             >
-              <Flame className="w-3.5 h-3.5 mr-1 text-orange-400" />
-              + Gas Masak
+              <Flame className="w-3.5 h-3.5 mr-1 text-orange-400 shrink-0" />
+              <span className="truncate">+ Gas Masak</span>
             </button>
           </div>
         </div>
@@ -250,7 +242,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <select
               value={filterWeek}
               onChange={(e) => setFilterWeek(e.target.value)}
-              className={`w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
+              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
                 filterWeek !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
               }`}
             >
@@ -265,7 +257,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <select
               value={filterDay}
               onChange={(e) => setFilterDay(e.target.value)}
-              className={`w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
+              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
                 filterDay !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
               }`}
             >
@@ -280,7 +272,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className={`w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs truncate transition ${
+              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs truncate transition ${
                 filterCategory !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
               }`}
             >
@@ -356,26 +348,24 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     )}
                   </div>
 
-                  {/* Actions (Only Admin Vier can Edit/Delete) */}
-                  {isAdmin && (
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => handleEdit(exp)}
-                        className="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700 transition"
-                        title="Edit"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(exp.id)}
-                        disabled={isDeleting}
-                        className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 active:bg-rose-900/60 transition"
-                        title="Hapus"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                  {/* Actions (Admin Vier can Edit/Delete; Non-admin triggers security alert) */}
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => handleEdit(exp)}
+                      className="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700 transition"
+                      title={isAdmin ? "Edit" : "Hanya Admin (Vier)"}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(exp.id)}
+                      disabled={isDeleting}
+                      className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 active:bg-rose-900/60 transition"
+                      title={isAdmin ? "Hapus" : "Hanya Admin (Vier)"}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {exp.notes && (
@@ -400,13 +390,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               <th className="py-3 px-4 font-semibold">PIC / Pembeli</th>
               <th className="py-3 px-4 font-semibold">Keterangan</th>
               <th className="py-3 px-4 text-right font-semibold">Nominal</th>
-              {isAdmin && <th className="py-3 px-4 text-center font-semibold">Aksi</th>}
+              <th className="py-3 px-4 text-center font-semibold">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="py-8 text-center text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-slate-500">
                   Belum ada catatan pengeluaran di periode atau filter ini.
                 </td>
               </tr>
@@ -468,28 +458,26 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       </span>
                     </td>
 
-                    {/* Actions (Admin Only) */}
-                    {isAdmin && (
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-1">
-                          <button
-                            onClick={() => handleEdit(exp)}
-                            className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                            title="Edit Pengeluaran"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(exp.id)}
-                            disabled={isDeleting}
-                            className="p-1.5 rounded-lg hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
-                            title="Hapus Pengeluaran"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
+                    {/* Actions */}
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex items-center justify-center space-x-1">
+                        <button
+                          onClick={() => handleEdit(exp)}
+                          className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                          title={isAdmin ? "Edit Pengeluaran" : "Hanya Admin (Vier)"}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(exp.id)}
+                          disabled={isDeleting}
+                          className="p-1.5 rounded-lg hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
+                          title={isAdmin ? "Hapus Pengeluaran" : "Hanya Admin (Vier)"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
 
                   </tr>
                 );

@@ -77,20 +77,20 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/85 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-4xl bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[94vh] flex flex-col animate-in slide-in-from-bottom-5 duration-200">
+      <div className="relative w-full max-w-4xl bg-slate-900 border-t sm:border border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-200">
         
         {/* Mobile Drag / Swipe bar */}
-        <div className="pt-2.5 pb-1 flex justify-center sm:hidden bg-slate-850">
+        <div className="pt-2.5 pb-1 flex justify-center sm:hidden bg-slate-850 shrink-0">
           <div className="w-12 h-1.5 bg-slate-700 rounded-full" />
         </div>
 
         {/* Header with Clear Back & Close Buttons */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-850 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-850 shrink-0">
           
           {/* Back Button for Android & Mobile */}
           <div className="flex items-center space-x-2">
@@ -144,7 +144,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
         </div>
 
         {/* Scrollable Report Content Preview */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 overscroll-contain">
           
           {/* Financial Summary KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 bg-slate-850 p-3.5 sm:p-4 rounded-2xl border border-slate-800">

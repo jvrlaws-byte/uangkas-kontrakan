@@ -68,6 +68,7 @@ export interface SummaryData {
   expectedMonthlyTotal: number;
   unpaidAmount: number;
   pendingVerificationsCount?: number;
+  securityAlertsCount?: number;
   martabak: {
     target: number;
     currentBalance: number;
@@ -76,6 +77,15 @@ export interface SummaryData {
     portions: number;
     remainingToTarget: number;
   };
+}
+
+export interface SecurityAlertItem {
+  id: string;
+  action: string;
+  device_info: string;
+  ip_address: string;
+  is_read: number;
+  created_at: string;
 }
 
 export interface SystemInfo {

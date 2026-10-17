@@ -79,6 +79,15 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS security_alerts (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    device_info TEXT,
+    ip_address TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Add verification columns to contributions if they don't exist
@@ -247,7 +256,57 @@ const getClientIp = (req) => {
   if (forwarded) {
     return String(forwarded).split(',')[0].trim();
   }
-  return req.socket?.remoteAddress || '127.0.0.1';
+  const rawIp = req.socket?.remoteAddress || '127.0.0.1';
+  return rawIp.replace(/^::ffff:/, '');
+};
+
+const getDeviceName = (req) => {
+  const ua = String(req.headers['user-agent'] || '').toLowerCase();
+  if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ios')) return 'iPhone / iOS';
+  if (ua.includes('android')) return 'HP Android';
+  if (ua.includes('macintosh') || ua.includes('mac os')) return 'Laptop Mac';
+  if (ua.includes('windows')) return 'Laptop Windows';
+  return 'Perangkat Lain';
+};
+
+const recordSecurityAlert = (req, actionText) => {
+  try {
+    const id = `sec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const ip = getClientIp(req);
+    const device = getDeviceName(req);
+    const createdAt = new Date().toLocaleString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
+    db.prepare(`
+      INSERT INTO security_alerts (id, action, device_info, ip_address, is_read, created_at)
+      VALUES (?, ?, ?, ?, 0, ?)
+    `).run(id, String(actionText).slice(0, 120), device, ip, createdAt);
+
+    // Keep maximum 50 alerts
+    db.exec(`
+      DELETE FROM security_alerts
+      WHERE id NOT IN (SELECT id FROM security_alerts ORDER BY rowid DESC LIMIT 50)
+    `);
+
+    const alertObj = {
+      id,
+      action: String(actionText).slice(0, 120),
+      device_info: device,
+      ip_address: ip,
+      is_read: 0,
+      created_at: createdAt,
+    };
+
+    broadcastUpdate({ type: 'security_alert', alert: alertObj });
+  } catch (err) {
+    console.error('Failed to record security alert:', err);
+  }
 };
 
 // API: Admin Authentication (Vier) with Per-IP Brute-Force & Timing Attack Protection
@@ -293,6 +352,8 @@ app.post('/api/admin/verify', (req, res) => {
   }
 
   rateData.attempts += 1;
+  recordSecurityAlert(req, `Gagal masuk Admin (PIN salah ke-${rateData.attempts})`);
+
   if (rateData.attempts >= 5) {
     rateData.lockUntil = now + 30 * 1000; // Lock for 30 seconds
     rateData.attempts = 0;
@@ -320,10 +381,34 @@ const requireAdmin = (req, res, next) => {
     return next();
   }
 
+  if (req.method !== 'GET') {
+    recordSecurityAlert(req, `Mencoba ubah data via API tanpa izin (${req.method} ${req.path})`);
+  }
+
   return res.status(403).json({ 
     error: 'Akses Ditolak: Hanya Vier (Admin) yang memiliki izin untuk mengubah data kas!' 
   });
 };
+
+// API: Report Unauthorized UI Modification Attempt (Non-Admin trying to change data)
+app.post('/api/security/report-attempt', (req, res) => {
+  const action = String(req.body?.action || 'Mencoba mengubah data kas tanpa akses Admin').trim();
+  recordSecurityAlert(req, action);
+  res.json({ reported: true });
+});
+
+// API: Get Security Alerts for Admin Vier
+app.get('/api/security/alerts', requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT * FROM security_alerts ORDER BY rowid DESC LIMIT 30').all();
+  res.json(rows);
+});
+
+// API: Clear / Mark Read Security Alerts for Admin Vier
+app.post('/api/security/alerts/clear', requireAdmin, (req, res) => {
+  db.exec('DELETE FROM security_alerts');
+  broadcastUpdate({ type: 'security_cleared' });
+  res.json({ success: true });
+});
 
 // API: Verify Admin Token Validity (Session Check on Page Load)
 app.get('/api/admin/check-auth', (req, res) => {
@@ -755,6 +840,9 @@ app.get('/api/summary', (req, res) => {
   `).get(year, month);
   const pendingVerificationsCount = pendingCountRow ? pendingCountRow.count : 0;
 
+  const secCountRow = db.prepare('SELECT COUNT(*) as count FROM security_alerts WHERE is_read = 0').get();
+  const securityAlertsCount = secCountRow ? secCountRow.count : 0;
+
   res.json({
     year,
     month,
@@ -768,6 +856,7 @@ app.get('/api/summary', (req, res) => {
     expectedMonthlyTotal,
     unpaidAmount: Math.max(0, expectedMonthlyTotal - monthlyIncome),
     pendingVerificationsCount,
+    securityAlertsCount,
     martabak: {
       target: martabakTarget,
       currentBalance,
