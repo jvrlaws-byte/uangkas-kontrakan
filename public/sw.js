@@ -1,9 +1,11 @@
-const CACHE_NAME = 'kas-kontrakan-v1';
+const CACHE_NAME = 'kas-kontrakan-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icons/icon.svg'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -27,18 +29,29 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass API calls to network directly so database is always fresh
+  // Pass API & SSE calls directly to network so database is always live
   if (event.request.url.includes('/api/')) {
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (event.request.method === 'GET' && networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+        });
+      })
   );
 });

@@ -68,9 +68,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* 1. Logo & House Title (Compact & Non-Overflowing on Mobile) */}
           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 shrink">
-            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-              <Home className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-            </div>
+            <img
+              src="/icons/icon-192.png"
+              alt="Kontrakan Cikarang Lembah Hijau"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl object-cover shadow-md border border-slate-700/60 bg-white shrink-0"
+            />
             <div className="min-w-0">
               <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <h1 className="font-extrabold text-sm sm:text-xl text-white tracking-tight truncate">
