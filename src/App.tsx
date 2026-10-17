@@ -286,17 +286,31 @@ export const App: React.FC = () => {
     setIsClaimModalOpen(true);
   };
 
-  // Expenses Actions (Admin only)
+  // Expenses Actions:
+  // - Creating a new expense (!id) is open to both Roommates (enters pending verification) and Admin Vier (immediately verified)
+  // - Editing an existing expense (id) is strictly Admin Vier only
   const handleSaveExpense = async (expenseData: Omit<Expense, 'id'>, id?: string) => {
-    if (!isAdmin) {
-      handleRequestAdminLogin('Mencoba menyimpan pengeluaran kas tanpa akses Admin');
-      return;
-    }
     if (id) {
+      if (!isAdmin) {
+        handleRequestAdminLogin('Mencoba mengedit pengeluaran kas tanpa akses Admin');
+        return;
+      }
       await api.updateExpense(id, expenseData);
     } else {
-      await api.addExpense(expenseData);
+      const res = await api.addExpense(expenseData);
+      if (res.pending_verification === 1) {
+        alert('✅ Pengeluaran berhasil dikirim! Menunggu verifikasi dari Vier (Admin).');
+      }
     }
+    await loadData();
+  };
+
+  const handleVerifyExpense = async (id: string, approve: boolean) => {
+    if (!isAdmin) {
+      handleRequestAdminLogin('Mencoba memverifikasi pengeluaran kas tanpa akses Admin');
+      return;
+    }
+    await api.verifyExpense(id, approve);
     await loadData();
   };
 
@@ -311,10 +325,6 @@ export const App: React.FC = () => {
 
   // Quick Add shortcut helper (default Air Rp 5.000)
   const handleQuickAdd = async (category: string, amount: number, dayName?: string, notes?: string) => {
-    if (!isAdmin) {
-      handleRequestAdminLogin(`Mencoba shortcut pengeluaran: ${category}`);
-      return;
-    }
     const today = new Date();
     const isoDate = today.toISOString().split('T')[0];
     const indoDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -370,6 +380,12 @@ export const App: React.FC = () => {
     await loadData();
   };
 
+  const pendingExpenses = expenses.filter((e) => e.pending_verification === 1);
+  const totalPendingVerifications =
+    summary?.pendingVerificationsCount !== undefined
+      ? summary.pendingVerificationsCount
+      : pendingPayments.length + pendingExpenses.length;
+
   return (
     <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#090d16] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-white">
       
@@ -387,7 +403,7 @@ export const App: React.FC = () => {
         onOpenMemberModal={() => setIsMemberModalOpen(true)}
         canInstallPwa={canInstallPwa}
         onInstallPwa={handleInstallPwa}
-        pendingCount={summary?.pendingVerificationsCount !== undefined ? summary.pendingVerificationsCount : pendingPayments.length}
+        pendingCount={totalPendingVerifications}
         securityCount={securityAlerts.length}
         onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
       />
@@ -460,7 +476,7 @@ export const App: React.FC = () => {
             <div className="flex items-center space-x-2 min-w-0">
               <Eye className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span className="truncate sm:whitespace-normal">
-                <strong>Mode Teman:</strong> Pantau kas & lapor bayar. Ubah data dikelola <strong>Vier (Admin)</strong>.
+                <strong>Mode Teman:</strong> Lapor bayar kas & pengeluaran baru. Verifikasi dikelola <strong>Vier (Admin)</strong>.
               </span>
             </div>
             <button
@@ -507,7 +523,7 @@ export const App: React.FC = () => {
                 year={currentYear}
                 month={currentMonth}
                 isAdmin={isAdmin}
-                pendingCount={summary?.pendingVerificationsCount !== undefined ? summary.pendingVerificationsCount : pendingPayments.length}
+                pendingCount={totalPendingVerifications}
                 onTogglePayment={handleTogglePayment}
                 onBatchPayMonth={handleBatchPayMonth}
                 onRequestAdminLogin={handleRequestAdminLogin}
@@ -535,6 +551,7 @@ export const App: React.FC = () => {
               }}
               onDeleteExpense={handleDeleteExpense}
               onQuickAdd={handleQuickAdd}
+              onVerifyExpense={handleVerifyExpense}
               onRequestAdminLogin={handleRequestAdminLogin}
             />
           </>
@@ -596,6 +613,7 @@ export const App: React.FC = () => {
         editingExpense={editingExpense}
         members={members}
         initialData={initialExpenseData}
+        isAdmin={isAdmin}
       />
 
       <AndroidConnectModal
@@ -653,10 +671,12 @@ export const App: React.FC = () => {
         isOpen={isVerificationModalOpen}
         onClose={() => setIsVerificationModalOpen(false)}
         pendingList={pendingPayments}
+        pendingExpenses={pendingExpenses}
         securityAlerts={securityAlerts}
         year={currentYear}
         month={currentMonth}
         onVerifySingle={handleVerifySingle}
+        onVerifyExpense={handleVerifyExpense}
         onVerifyAll={handleVerifyAll}
         onClearSecurityAlerts={handleClearSecurityAlerts}
       />

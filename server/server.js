@@ -107,6 +107,17 @@ try {
   db.exec("ALTER TABLE contributions ADD COLUMN verified_at TEXT;");
 } catch (e) {}
 
+// Add verification columns to expenses if they don't exist
+try {
+  db.exec("ALTER TABLE expenses ADD COLUMN pending_verification INTEGER DEFAULT 0;");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE expenses ADD COLUMN is_verified INTEGER DEFAULT 1;");
+} catch (e) {}
+try {
+  db.exec("ALTER TABLE expenses ADD COLUMN verified_at TEXT;");
+} catch (e) {}
+
 // Seed default settings
 const getSetting = (key, defaultVal) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -123,8 +134,9 @@ if (!getSetting('weekly_fee', null)) {
 if (!getSetting('martabak_target', null)) {
   setSetting('martabak_target', '50000');
 }
-if (!getSetting('admin_pin', null) || getSetting('admin_pin', null) === '1234') {
-  setSetting('admin_pin', '151515');
+const currentSavedPin = getSetting('admin_pin', null);
+if (!currentSavedPin || currentSavedPin === '1234' || currentSavedPin === '151515') {
+  setSetting('admin_pin', '101010');
 }
 if (!getSetting('admin_name', null) || getSetting('admin_name', null) === 'Javier') {
   setSetting('admin_name', 'Vier');
@@ -303,10 +315,19 @@ const recordSecurityAlert = (req, actionText) => {
       created_at: createdAt,
     };
 
-    broadcastUpdate({ type: 'security_alert', alert: alertObj });
+    broadcastChange('security_alert', { alert: alertObj });
   } catch (err) {
     console.error('Failed to record security alert:', err);
   }
+};
+
+// Helper to check if a request carries a valid Admin token
+const isAdminRequest = (req) => {
+  const token = req.headers['x-admin-token'];
+  const activeToken = getSetting('active_admin_token', null);
+  const tokenExpires = Number(getSetting('admin_token_expires', 0));
+  const now = Date.now();
+  return Boolean(token && activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires));
 };
 
 // API: Admin Authentication (Vier) with Per-IP Brute-Force & Timing Attack Protection
@@ -328,7 +349,7 @@ app.post('/api/admin/verify', (req, res) => {
     return res.status(400).json({ error: 'PIN tidak boleh kosong' });
   }
 
-  const currentPin = String(getSetting('admin_pin', '151515')).trim();
+  const currentPin = String(getSetting('admin_pin', '101010')).trim();
   
   // Timing-safe comparison to prevent side-channel timing attacks
   const pinBuffer = Buffer.from(pin, 'utf8');
@@ -372,12 +393,7 @@ app.post('/api/admin/verify', (req, res) => {
 
 // Middleware: Strictly Require Active Admin Token (with expiration check)
 const requireAdmin = (req, res, next) => {
-  const token = req.headers['x-admin-token'];
-  const activeToken = getSetting('active_admin_token', null);
-  const tokenExpires = Number(getSetting('admin_token_expires', 0));
-  const now = Date.now();
-
-  if (token && activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires)) {
+  if (isAdminRequest(req)) {
     return next();
   }
 
@@ -406,18 +422,13 @@ app.get('/api/security/alerts', requireAdmin, (req, res) => {
 // API: Clear / Mark Read Security Alerts for Admin Vier
 app.post('/api/security/alerts/clear', requireAdmin, (req, res) => {
   db.exec('DELETE FROM security_alerts');
-  broadcastUpdate({ type: 'security_cleared' });
+  broadcastChange('security_cleared');
   res.json({ success: true });
 });
 
 // API: Verify Admin Token Validity (Session Check on Page Load)
 app.get('/api/admin/check-auth', (req, res) => {
-  const token = req.headers['x-admin-token'];
-  const activeToken = getSetting('active_admin_token', null);
-  const tokenExpires = Number(getSetting('admin_token_expires', 0));
-  const now = Date.now();
-
-  if (token && activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires)) {
+  if (isAdminRequest(req)) {
     return res.json({ authenticated: true, adminName: getSetting('admin_name', 'Vier') });
   }
   return res.json({ authenticated: false });
@@ -432,7 +443,7 @@ app.post('/api/admin/logout', requireAdmin, (req, res) => {
 
 app.post('/api/admin/change-pin', requireAdmin, (req, res) => {
   const { currentPin, newPin } = req.body;
-  const savedPin = String(getSetting('admin_pin', '151515'));
+  const savedPin = String(getSetting('admin_pin', '101010'));
   if (currentPin !== savedPin) {
     return res.status(401).json({ error: 'PIN lama salah' });
   }
@@ -593,7 +604,7 @@ app.post('/api/contributions/verify', requireAdmin, (req, res) => {
   res.json({ success: true, id, approved: !!approve });
 });
 
-// API: Vier verifies all pending payments at once
+// API: Vier verifies all pending payments & pending expenses at once
 app.post('/api/contributions/verify-all', requireAdmin, (req, res) => {
   const { year, month } = req.body;
   const now = new Date().toISOString();
@@ -603,15 +614,25 @@ app.post('/api/contributions/verify-all', requireAdmin, (req, res) => {
     SET is_paid = 1, pending_verification = 0, status = 'verified', paid_at = ?, verified_at = ?
     WHERE pending_verification = 1
   `;
+  let expQuery = `
+    UPDATE expenses
+    SET is_verified = 1, pending_verification = 0, verified_at = ?
+    WHERE pending_verification = 1
+  `;
   const params = [now, now];
+  const expParams = [now];
   if (year && month) {
     query += ' AND year = ? AND month = ?';
     params.push(year, month);
+    expQuery += ' AND year = ? AND month = ?';
+    expParams.push(year, month);
   }
 
   const result = db.prepare(query).run(...params);
+  const expResult = db.prepare(expQuery).run(...expParams);
   broadcastChange('contributions_updated');
-  res.json({ success: true, verifiedCount: result.changes });
+  broadcastChange('expenses_updated');
+  res.json({ success: true, verifiedCount: result.changes + expResult.changes });
 });
 
 // API: Get pending payment claims for Vier to review
@@ -698,13 +719,31 @@ app.get('/api/expenses', (req, res) => {
   const rows = db.prepare(`
     SELECT * FROM expenses 
     WHERE year = ? AND month = ? 
-    ORDER BY date DESC, created_at DESC
+    ORDER BY pending_verification DESC, date DESC, created_at DESC
   `).all(year, month);
 
   res.json(rows);
 });
 
-app.post('/api/expenses', requireAdmin, (req, res) => {
+// API: Get pending expenses for Vier to review
+app.get('/api/expenses/pending', (req, res) => {
+  const year = req.query.year ? Number(req.query.year) : null;
+  const month = req.query.month ? Number(req.query.month) : null;
+
+  let query = `SELECT * FROM expenses WHERE pending_verification = 1`;
+  const params = [];
+  if (year && month) {
+    query += ' AND year = ? AND month = ?';
+    params.push(year, month);
+  }
+  query += ' ORDER BY created_at DESC';
+
+  const rows = db.prepare(query).all(...params);
+  res.json(rows);
+});
+
+// API: Create Expense (Open to Roommates & Admin! Roommate submissions enter pending_verification = 1)
+app.post('/api/expenses', (req, res) => {
   const { date, day_name, category, amount, pic, notes, week } = req.body;
   const numAmount = Math.round(Number(amount));
   
@@ -730,14 +769,40 @@ app.post('/api/expenses', requireAdmin, (req, res) => {
   const cleanNotes = String(notes || '').replace(/[<>'"]/g, '').trim().slice(0, 200);
 
   const id = `exp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const isByAdmin = isAdminRequest(req);
+  const isVerified = isByAdmin ? 1 : 0;
+  const pendingVerif = isByAdmin ? 0 : 1;
+  const verifiedAt = isByAdmin ? new Date().toISOString() : null;
 
   db.prepare(`
-    INSERT INTO expenses (id, year, month, week, date, day_name, category, amount, pic, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, year, month, weekNum, date, calculatedDay, cleanCategory, numAmount, cleanPic, cleanNotes);
+    INSERT INTO expenses (id, year, month, week, date, day_name, category, amount, pic, notes, is_verified, pending_verification, verified_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, year, month, weekNum, date, calculatedDay, cleanCategory, numAmount, cleanPic, cleanNotes, isVerified, pendingVerif, verifiedAt);
+
+  broadcastChange('expenses_updated', { pendingExpense: !isByAdmin });
+  res.json({ success: true, id, pending_verification: pendingVerif, is_verified: isVerified });
+});
+
+// API: Admin Vier verifies or rejects a pending expense
+app.post('/api/expenses/verify', requireAdmin, (req, res) => {
+  const { id, approve } = req.body;
+  if (!id) {
+    return res.status(400).json({ error: 'ID pengeluaran wajib diisi' });
+  }
+
+  const now = new Date().toISOString();
+  if (approve) {
+    db.prepare(`
+      UPDATE expenses
+      SET is_verified = 1, pending_verification = 0, verified_at = ?
+      WHERE id = ?
+    `).run(now, id);
+  } else {
+    db.prepare(`DELETE FROM expenses WHERE id = ?`).run(id);
+  }
 
   broadcastChange('expenses_updated');
-  res.json({ success: true, id });
+  res.json({ success: true, id, approved: !!approve });
 });
 
 app.put('/api/expenses/:id', requireAdmin, (req, res) => {
@@ -795,15 +860,15 @@ app.get('/api/summary', (req, res) => {
   `).get(year, month);
   const monthlyIncome = incomeRow ? incomeRow.total : 0;
 
-  // Total expense in this month
+  // Total verified expense in this month
   const expenseRow = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as total 
     FROM expenses 
-    WHERE year = ? AND month = ?
+    WHERE year = ? AND month = ? AND pending_verification = 0
   `).get(year, month);
   const monthlyExpense = expenseRow ? expenseRow.total : 0;
 
-  // All-time balance (cumulative)
+  // All-time balance (cumulative verified income - verified expenses)
   const allIncomeRow = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as total 
     FROM contributions 
@@ -812,6 +877,7 @@ app.get('/api/summary', (req, res) => {
   const allExpenseRow = db.prepare(`
     SELECT COALESCE(SUM(amount), 0) as total 
     FROM expenses
+    WHERE pending_verification = 0
   `).get();
   
   const allTimeIncome = allIncomeRow ? allIncomeRow.total : 0;
@@ -822,23 +888,23 @@ app.get('/api/summary', (req, res) => {
   const activeMembersCount = db.prepare('SELECT COUNT(*) as count FROM members WHERE is_active = 1').get().count;
   const weeklyFee = Number(getSetting('weekly_fee', 5000));
   const expectedMonthlyTotal = activeMembersCount * 4 * weeklyFee;
-  const unpaidRow = db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) as total
-    FROM contributions
-    WHERE year = ? AND month = ? AND is_paid = 0
-  `).get(year, month);
 
   const martabakTarget = Number(getSetting('martabak_target', 50000));
   const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
   const martabakReady = currentBalance >= martabakTarget;
   const martabakPortions = Math.max(0, Math.floor(currentBalance / martabakTarget));
 
-  const pendingCountRow = db.prepare(`
+  const pendingContribRow = db.prepare(`
     SELECT COUNT(*) as count 
     FROM contributions 
     WHERE pending_verification = 1 AND year = ? AND month = ?
   `).get(year, month);
-  const pendingVerificationsCount = pendingCountRow ? pendingCountRow.count : 0;
+  const pendingExpRow = db.prepare(`
+    SELECT COUNT(*) as count 
+    FROM expenses 
+    WHERE pending_verification = 1 AND year = ? AND month = ?
+  `).get(year, month);
+  const pendingVerificationsCount = (pendingContribRow ? pendingContribRow.count : 0) + (pendingExpRow ? pendingExpRow.count : 0);
 
   const secCountRow = db.prepare('SELECT COUNT(*) as count FROM security_alerts WHERE is_read = 0').get();
   const securityAlertsCount = secCountRow ? secCountRow.count : 0;

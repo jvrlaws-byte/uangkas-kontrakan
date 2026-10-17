@@ -11,7 +11,8 @@ import {
   User, 
   Flame, 
   Layers, 
-  Lock,
+  Clock,
+  Check,
   X 
 } from 'lucide-react';
 import { Expense } from '../types';
@@ -23,6 +24,7 @@ interface ExpenseListProps {
   onOpenEditModal: (expense: Expense) => void;
   onDeleteExpense: (id: string) => Promise<void>;
   onQuickAdd: (category: string, amount: number, dayName?: string, notes?: string) => Promise<void>;
+  onVerifyExpense?: (id: string, approve: boolean) => Promise<void>;
   onRequestAdminLogin: (attemptedAction?: string) => void;
 }
 
@@ -32,13 +34,14 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   onOpenAddModal,
   onOpenEditModal,
   onDeleteExpense,
-  onQuickAdd,
+  onVerifyExpense,
   onRequestAdminLogin,
 }) => {
   const [filterWeek, setFilterWeek] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   // Indonesian day helper (no "Semua")
   const days = ['Hari', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -90,6 +93,19 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     onOpenEditModal(exp);
   };
 
+  const handleVerify = async (exp: Expense, approve: boolean) => {
+    if (!isAdmin || !onVerifyExpense) return;
+    if (!approve && !window.confirm(`Tolak & hapus laporan pengeluaran "${exp.category} - Rp ${exp.amount.toLocaleString('id-ID')}" (${exp.pic || 'Teman'})?`)) {
+      return;
+    }
+    setVerifyingId(exp.id);
+    try {
+      await onVerifyExpense(exp.id, approve);
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   const getCategoryBadge = (category: string) => {
     if (category.includes('Air') || category.includes('Galon')) {
       return { bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30', icon: Droplet, label: 'Isi Ulang Air' };
@@ -121,43 +137,31 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               Pengeluaran Kas
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Operasional: Air, Sabun, Tissue, Gas Masak & Lainnya.
+              {isAdmin
+                ? 'Operasional: Air, Sabun, Tissue, Gas Masak & Lainnya.'
+                : 'Teman bisa input pengeluaran baru (diverifikasi oleh Vier).'}
             </p>
           </div>
 
-          {isAdmin ? (
-            <button
-              onClick={() => onOpenAddModal()}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition active:scale-95"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              + Catat Pengeluaran
-            </button>
-          ) : (
-            <button
-              onClick={() => onRequestAdminLogin('Mencoba klik tombol + Catat Pengeluaran')}
-              className="w-full sm:w-auto inline-flex items-center justify-center px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:border-slate-600 transition active:scale-95"
-            >
-              <Lock className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
-              Masuk Admin untuk Catat
-            </button>
-          )}
+          <button
+            onClick={() => onOpenAddModal()}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition active:scale-95"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            {isAdmin ? '+ Catat Pengeluaran' : '+ Lapor Pengeluaran'}
+          </button>
         </div>
 
-        {/* ⚡ Quick Shortcut Buttons */}
+        {/* ⚡ Quick Shortcut Buttons (Open to all roommates — verified by Vier if !isAdmin) */}
         <div className="mt-3.5 pt-3 border-t border-slate-800/80">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
             ⚡ Shortcut Rutin:
           </span>
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
             
-            {/* Hanya 1 Tombol Air Rp 5.000: Buka modal agar user leluasa mengatur jadwalnya kapan */}
+            {/* Isi Air */}
             <button
               onClick={() => {
-                if (!isAdmin) {
-                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Isi Air');
-                  return;
-                }
                 onOpenAddModal({
                   category: 'Isi Ulang Air',
                   amount: 5000,
@@ -165,7 +169,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 });
               }}
               className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-800/70 transition active:scale-95 shadow-sm truncate"
-              title="Atur jadwal isi ulang air"
+              title="Catat isi ulang air"
             >
               <Droplet className="w-3.5 h-3.5 mr-1 text-cyan-400 shrink-0" />
               <span className="truncate">+ Isi Air</span>
@@ -174,10 +178,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             {/* Sabun Cuci Piring */}
             <button
               onClick={() => {
-                if (!isAdmin) {
-                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Sabun Cuci Piring');
-                  return;
-                }
                 onOpenAddModal({
                   category: 'Sabun Cuci Piring',
                   amount: 15000,
@@ -193,10 +193,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             {/* Tissue */}
             <button
               onClick={() => {
-                if (!isAdmin) {
-                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Tissue');
-                  return;
-                }
                 onOpenAddModal({
                   category: 'Tissue',
                   amount: 10000,
@@ -212,10 +208,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             {/* Gas Masak */}
             <button
               onClick={() => {
-                if (!isAdmin) {
-                  onRequestAdminLogin('Mencoba tambah pengeluaran: + Gas Masak');
-                  return;
-                }
                 onOpenAddModal({
                   category: 'Gas Masak',
                   amount: 22000,
@@ -312,11 +304,18 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             const badge = getCategoryBadge(exp.category);
             const Icon = badge.icon;
             const isDeleting = deletingId === exp.id;
+            const isPending = exp.pending_verification === 1;
+            const isVerifying = verifyingId === exp.id;
 
             return (
-              <div key={exp.id} className="p-3.5 hover:bg-slate-800/20 transition flex flex-col space-y-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2">
+              <div
+                key={exp.id}
+                className={`p-3.5 transition flex flex-col space-y-2 ${
+                  isPending ? 'bg-amber-950/20 border-l-4 border-l-amber-400' : 'hover:bg-slate-800/20'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
                       {exp.day_name}
                     </span>
@@ -324,21 +323,27 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       {exp.date}
                     </span>
                     <span className="text-[10px] text-slate-500">M{exp.week}</span>
+                    {isPending && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                        <Clock className="w-2.5 h-2.5 mr-0.5" />
+                        Menunggu Verif
+                      </span>
+                    )}
                   </div>
 
                   {/* Nominal */}
-                  <div className="text-right">
-                    <span className="font-extrabold text-rose-400 text-sm">
+                  <div className="text-right shrink-0">
+                    <span className={`font-extrabold text-sm ${isPending ? 'text-amber-300' : 'text-rose-400'}`}>
                       -Rp {exp.amount.toLocaleString('id-ID')}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${badge.bg}`}>
-                      <Icon className="w-3 h-3 mr-1" />
-                      {exp.category}
+                      <Icon className="w-3 h-3 mr-1 shrink-0" />
+                      <span className="truncate">{exp.category}</span>
                     </span>
                     {exp.pic && (
                       <span className="text-[11px] text-slate-400 flex items-center">
@@ -348,23 +353,47 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     )}
                   </div>
 
-                  {/* Actions (Admin Vier can Edit/Delete; Non-admin triggers security alert) */}
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => handleEdit(exp)}
-                      className="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700 transition"
-                      title={isAdmin ? "Edit" : "Hanya Admin (Vier)"}
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(exp.id)}
-                      disabled={isDeleting}
-                      className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 active:bg-rose-900/60 transition"
-                      title={isAdmin ? "Hapus" : "Hanya Admin (Vier)"}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Actions */}
+                  <div className="flex items-center space-x-1 shrink-0">
+                    {isPending && isAdmin ? (
+                      <>
+                        <button
+                          onClick={() => handleVerify(exp, true)}
+                          disabled={isVerifying}
+                          className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center active:scale-95 transition"
+                          title="Setujui Pengeluaran"
+                        >
+                          <Check className="w-3 h-3 mr-0.5" />
+                          Setuju
+                        </button>
+                        <button
+                          onClick={() => handleVerify(exp, false)}
+                          disabled={isVerifying}
+                          className="p-1.5 rounded-lg bg-rose-950/60 text-rose-400 border border-rose-800/50 active:scale-95 transition"
+                          title="Tolak Pengeluaran"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEdit(exp)}
+                          className="p-1.5 rounded-lg bg-slate-800 text-slate-300 active:bg-slate-700 transition"
+                          title={isAdmin ? "Edit" : "Hanya Admin (Vier)"}
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(exp.id)}
+                          disabled={isDeleting}
+                          className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 active:bg-rose-900/60 transition"
+                          title={isAdmin ? "Hapus" : "Hanya Admin (Vier)"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -405,9 +434,16 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 const badge = getCategoryBadge(exp.category);
                 const Icon = badge.icon;
                 const isDeleting = deletingId === exp.id;
+                const isPending = exp.pending_verification === 1;
+                const isVerifying = verifyingId === exp.id;
 
                 return (
-                  <tr key={exp.id} className="hover:bg-slate-800/30 transition">
+                  <tr
+                    key={exp.id}
+                    className={`transition ${
+                      isPending ? 'bg-amber-950/20 hover:bg-amber-950/30' : 'hover:bg-slate-800/30'
+                    }`}
+                  >
                     
                     {/* Day & Date */}
                     <td className="py-3.5 px-4">
@@ -418,6 +454,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                         <span className="text-xs text-slate-300 font-medium">
                           {exp.date}
                         </span>
+                        {isPending && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Menunggu Verifikasi
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -453,7 +495,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
                     {/* Amount */}
                     <td className="py-3.5 px-4 text-right">
-                      <span className="font-bold text-rose-400 text-sm">
+                      <span className={`font-bold text-sm ${isPending ? 'text-amber-300' : 'text-rose-400'}`}>
                         -Rp {exp.amount.toLocaleString('id-ID')}
                       </span>
                     </td>
@@ -461,21 +503,45 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center space-x-1">
-                        <button
-                          onClick={() => handleEdit(exp)}
-                          className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                          title={isAdmin ? "Edit Pengeluaran" : "Hanya Admin (Vier)"}
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(exp.id)}
-                          disabled={isDeleting}
-                          className="p-1.5 rounded-lg hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
-                          title={isAdmin ? "Hapus Pengeluaran" : "Hanya Admin (Vier)"}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isPending && isAdmin ? (
+                          <>
+                            <button
+                              onClick={() => handleVerify(exp, true)}
+                              disabled={isVerifying}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center transition active:scale-95"
+                              title="Setujui Pengeluaran"
+                            >
+                              <Check className="w-3.5 h-3.5 mr-1" />
+                              Setuju
+                            </button>
+                            <button
+                              onClick={() => handleVerify(exp, false)}
+                              disabled={isVerifying}
+                              className="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-400 border border-rose-800/50 transition"
+                              title="Tolak Pengeluaran"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEdit(exp)}
+                              className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition"
+                              title={isAdmin ? "Edit Pengeluaran" : "Hanya Admin (Vier)"}
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(exp.id)}
+                              disabled={isDeleting}
+                              className="p-1.5 rounded-lg hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
+                              title={isAdmin ? "Hapus Pengeluaran" : "Hanya Admin (Vier)"}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
 

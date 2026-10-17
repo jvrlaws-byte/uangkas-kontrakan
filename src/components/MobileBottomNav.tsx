@@ -44,22 +44,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <span className="text-[10px] font-semibold">Martabak</span>
           </button>
 
-          {/* 3. CENTER FLOATING BUTTON: + Catat Pengeluaran */}
+          {/* 3. CENTER FLOATING BUTTON: + Catat / Lapor Pengeluaran */}
           <div className="relative -top-5">
             <button
-              onClick={() => isAdmin ? onOpenAddExpense() : onRequestAdminLogin('Mencoba tombol + Catat Pengeluaran (Menu Bawah HP)')}
-              className={`w-13 h-13 sm:w-14 sm:h-14 p-3.5 rounded-full flex items-center justify-center shadow-lg border-4 border-[#0b1120] active:scale-90 transition-transform ${
-                isAdmin
-                  ? 'bg-gradient-to-tr from-emerald-600 to-green-500 text-white shadow-emerald-500/40'
-                  : 'bg-gradient-to-tr from-slate-700 to-slate-600 text-amber-300 shadow-slate-900/60'
-              }`}
-              title={isAdmin ? 'Catat Pengeluaran' : 'Masuk Admin (Vier)'}
+              onClick={onOpenAddExpense}
+              className="w-13 h-13 sm:w-14 sm:h-14 p-3.5 rounded-full flex items-center justify-center shadow-lg border-4 border-[#0b1120] active:scale-90 transition-transform bg-gradient-to-tr from-emerald-600 to-green-500 text-white shadow-emerald-500/40"
+              title={isAdmin ? 'Catat Pengeluaran' : 'Lapor Pengeluaran Baru'}
             >
-              {isAdmin ? (
-                <Plus className="w-6 h-6 stroke-[2.5]" />
-              ) : (
-                <Lock className="w-5 h-5 stroke-[2.2]" />
-              )}
+              <Plus className="w-6 h-6 stroke-[2.5]" />
             </button>
           </div>
 

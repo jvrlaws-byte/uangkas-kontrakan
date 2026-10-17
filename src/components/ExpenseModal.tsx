@@ -9,6 +9,7 @@ interface ExpenseModalProps {
   editingExpense?: Expense | null;
   members: Member[];
   initialData?: Partial<Expense>;
+  isAdmin?: boolean;
 }
 
 const INDO_DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -20,6 +21,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   editingExpense,
   members,
   initialData,
+  isAdmin = false,
 }) => {
   const [date, setDate] = useState<string>('');
   const [dayName, setDayName] = useState<string>('Senin');
@@ -157,7 +159,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-800 bg-slate-850 shrink-0">
           <h3 className="font-bold text-base sm:text-lg text-white flex items-center">
-            {editingExpense ? '✏️ Edit Pengeluaran' : '📝 Catat Pengeluaran Kas'}
+            {editingExpense
+              ? '✏️ Edit Pengeluaran'
+              : isAdmin
+                ? '📝 Catat Pengeluaran Kas'
+                : '📝 Lapor Pengeluaran Baru'}
           </h3>
           <button
             onClick={onClose}
@@ -169,6 +175,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+          
+          {!isAdmin && !editingExpense && (
+            <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 leading-relaxed">
+              💡 <strong>Sistem Verifikasi Vier:</strong> Pengeluaran yang kamu masukkan akan dikirim ke <strong>Vier (Admin)</strong> untuk dicek dan diverifikasi terlebih dahulu.
+            </div>
+          )}
           
           {/* Category Chips (Spesifik: Isi Ulang Air, Sabun Cuci Piring, Tissue, Gas, Martabak, Lain-lain) */}
           <div>
@@ -341,7 +353,15 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               className="w-2/3 sm:w-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-1.5"
             >
               <Check className="w-4 h-4" />
-              <span>{isSubmitting ? 'Menyimpan...' : editingExpense ? 'Simpan' : 'Simpan Pengeluaran'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Mengirim...'
+                  : editingExpense
+                    ? 'Simpan'
+                    : isAdmin
+                      ? 'Simpan Pengeluaran'
+                      : 'Kirim ke Verifikasi Vier'}
+              </span>
             </button>
           </div>
 

@@ -52,6 +52,9 @@ export interface Expense {
   amount: number;
   pic?: string;       // Person in charge / who paid
   notes?: string;
+  pending_verification?: number; // 0 or 1
+  is_verified?: number; // 0 or 1
+  verified_at?: string | null;
   created_at?: string;
 }
 

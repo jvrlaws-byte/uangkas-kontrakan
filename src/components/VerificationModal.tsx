@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, XCircle, ShieldCheck, ShieldAlert, Clock, Check, ArrowLeft, Trash2, Smartphone } from 'lucide-react';
-import { PendingVerificationItem, SecurityAlertItem } from '../types';
+import { X, CheckCircle2, XCircle, ShieldCheck, ShieldAlert, Clock, Check, ArrowLeft, Trash2, Smartphone, Receipt, User } from 'lucide-react';
+import { PendingVerificationItem, SecurityAlertItem, Expense } from '../types';
 
 interface VerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
   pendingList: PendingVerificationItem[];
+  pendingExpenses?: Expense[];
   securityAlerts?: SecurityAlertItem[];
   year: number;
   month: number;
   onVerifySingle: (id: string, approve: boolean) => Promise<void>;
+  onVerifyExpense?: (id: string, approve: boolean) => Promise<void>;
   onVerifyAll: () => Promise<void>;
   onClearSecurityAlerts?: () => Promise<void>;
 }
@@ -23,10 +25,12 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   isOpen,
   onClose,
   pendingList,
+  pendingExpenses = [],
   securityAlerts = [],
   year,
   month,
   onVerifySingle,
+  onVerifyExpense,
   onVerifyAll,
   onClearSecurityAlerts,
 }) => {
@@ -37,6 +41,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   if (!isOpen) return null;
 
   const monthName = MONTH_NAMES[month - 1];
+  const totalPendingCount = pendingList.length + pendingExpenses.length;
 
   const handleVerify = async (id: string, approve: boolean) => {
     setLoadingId(id);
@@ -47,8 +52,18 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
     }
   };
 
+  const handleVerifyExp = async (id: string, approve: boolean) => {
+    if (!onVerifyExpense) return;
+    setLoadingId(id);
+    try {
+      await onVerifyExpense(id, approve);
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   const handleVerifyAll = async () => {
-    if (window.confirm(`Setujui semua (${pendingList.length}) pembayaran yang masuk?`)) {
+    if (window.confirm(`Setujui semua (${totalPendingCount}) antrean verifikasi (kas & pengeluaran)?`)) {
       setLoadingAll(true);
       try {
         await onVerifyAll();
@@ -96,13 +111,13 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center space-x-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <h3 className="font-bold text-sm sm:text-base text-white truncate">
-                  Panel Admin Vier
+                  Verifikasi Admin Vier
                 </h3>
-                {pendingList.length > 0 && (
+                {totalPendingCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                    {pendingList.length} Kas
+                    {totalPendingCount} Menunggu
                   </span>
                 )}
                 {securityAlerts.length > 0 && (
@@ -112,7 +127,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-400 truncate">
-                Verifikasi Kas & Log Keamanan ({monthName} {year})
+                Iuran Kas, Pengeluaran & Keamanan ({monthName} {year})
               </p>
             </div>
           </div>
@@ -148,7 +163,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
                 )}
               </div>
 
-              <div className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
                 {securityAlerts.map((sec) => (
                   <div
                     key={sec.id}
@@ -178,22 +193,92 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
             </div>
           )}
 
-          {/* 2. PENDING KAS VERIFICATIONS SECTION */}
+          {/* 2. PENDING EXPENSES SECTION (Pengeluaran Baru dari Teman) */}
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-rose-400 flex items-center">
+              <Receipt className="w-4 h-4 mr-1.5" />
+              Verifikasi Pengeluaran Baru ({pendingExpenses.length})
+            </h4>
+
+            {pendingExpenses.length === 0 ? (
+              <div className="py-4 px-4 text-center bg-slate-850/60 rounded-2xl border border-slate-800/80 text-xs text-slate-400">
+                Tidak ada laporan pengeluaran baru yang menunggu verifikasi.
+              </div>
+            ) : (
+              pendingExpenses.map((exp) => {
+                const isLoading = loadingId === exp.id;
+                return (
+                  <div
+                    key={exp.id}
+                    className="p-3.5 bg-slate-800/80 hover:bg-slate-800 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-400 font-bold flex items-center justify-center shrink-0 text-xs">
+                        M{exp.week}
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-extrabold text-sm text-white">
+                            {exp.category}
+                          </span>
+                          <span className="text-xs font-extrabold text-rose-400">
+                            -Rp {exp.amount.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300 mt-0.5">
+                          <span className="inline-flex items-center text-amber-300 font-semibold">
+                            <User className="w-3 h-3 mr-1" />
+                            PIC: {exp.pic || 'Teman'}
+                          </span>
+                          <span>•</span>
+                          <span>{exp.day_name}, {exp.date}</span>
+                        </div>
+                        {exp.notes && (
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            "{exp.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center space-x-2 self-end sm:self-center shrink-0">
+                      <button
+                        onClick={() => handleVerifyExp(exp.id, false)}
+                        disabled={isLoading}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/70 transition active:scale-95 disabled:opacity-50"
+                        title="Tolak & hapus pengeluaran ini"
+                      >
+                        <XCircle className="w-3.5 h-3.5 mr-1 inline" />
+                        Tolak
+                      </button>
+
+                      <button
+                        onClick={() => handleVerifyExp(exp.id, true)}
+                        disabled={isLoading}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition active:scale-95 disabled:opacity-50 flex items-center"
+                        title="Setujui pengeluaran ini"
+                      >
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        {isLoading ? 'Memproses...' : 'Setujui'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 3. PENDING KAS VERIFICATIONS SECTION */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center">
               <Clock className="w-4 h-4 mr-1.5" />
-              Antrean Verifikasi Kas ({pendingList.length})
+              Verifikasi Iuran Kas ({pendingList.length})
             </h4>
 
             {pendingList.length === 0 ? (
-              <div className="py-8 text-center space-y-2 bg-slate-850/60 rounded-2xl border border-slate-800/80">
-                <div className="w-10 h-10 mx-auto rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <h4 className="font-bold text-white text-xs sm:text-sm">Tidak Ada Antrean Kas</h4>
-                <p className="text-[11px] text-slate-400">
-                  Semua pembayaran kas sudah diverifikasi.
-                </p>
+              <div className="py-4 px-4 text-center bg-slate-850/60 rounded-2xl border border-slate-800/80 text-xs text-slate-400">
+                Tidak ada antrean pembayaran iuran kas.
               </div>
             ) : (
               pendingList.map((item) => {
@@ -265,19 +350,19 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
 
         {/* Footer */}
         <div className="p-3.5 sm:p-4 border-t border-slate-800 bg-slate-850 shrink-0 flex items-center justify-between gap-3 pb-safe">
-          {pendingList.length > 0 ? (
+          {totalPendingCount > 0 ? (
             <>
               <span className="text-xs text-slate-400">
-                Total: <strong>{pendingList.length} klaim</strong> (Rp {(pendingList.length * 5000).toLocaleString('id-ID')})
+                Total: <strong>{totalPendingCount} menunggu</strong> ({pendingList.length} kas, {pendingExpenses.length} pengeluaran)
               </span>
 
               <button
                 onClick={handleVerifyAll}
                 disabled={loadingAll}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-md shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50 flex items-center"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-md shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50 flex items-center shrink-0"
               >
                 <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                {loadingAll ? 'Memproses...' : `Setujui Semua (${pendingList.length})`}
+                {loadingAll ? 'Memproses...' : `Setujui Semua (${totalPendingCount})`}
               </button>
             </>
           ) : (

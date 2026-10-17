@@ -263,7 +263,20 @@ export const api = {
     return await res.json();
   },
 
-  async addExpense(expense: Omit<Expense, 'id'>): Promise<{ success: boolean; id: string }> {
+  async getPendingExpenses(year?: number, month?: number): Promise<Expense[]> {
+    let url = `${API_BASE}/expenses/pending`;
+    const params = new URLSearchParams();
+    if (year) params.append('year', String(year));
+    if (month) params.append('month', String(month));
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return await res.json();
+  },
+
+  async addExpense(expense: Omit<Expense, 'id'>): Promise<{ success: boolean; id: string; pending_verification?: number; is_verified?: number }> {
     const res = await fetch(`${API_BASE}/expenses`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -274,6 +287,18 @@ export const api = {
       throw new Error(err.error || 'Gagal menyimpan pengeluaran');
     }
     return await res.json();
+  },
+
+  async verifyExpense(id: string, approve: boolean): Promise<void> {
+    const res = await fetch(`${API_BASE}/expenses/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ id, approve }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Gagal memverifikasi pengeluaran');
+    }
   },
 
   async updateExpense(id: string, expense: Partial<Expense>): Promise<void> {
