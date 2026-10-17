@@ -6,25 +6,34 @@ import fs from 'fs';
 import os from 'os';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import { INITIAL_SNAPSHOT } from './initial-data.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
 const app = express();
+app.set('etag', false);
 const PORT = process.env.PORT || 3000;
 
-// Security Headers
+// Security Headers & No-Cache for API
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (req.path.startsWith('/api')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
   next();
 });
 
-app.use(cors());
-app.use(express.json({ limit: '50kb' }));
+app.use(cors({
+  exposedHeaders: ['X-UangKas-Snapshot']
+}));
+app.use(express.json({ limit: '250kb' }));
 
 // Ensure data folder exists (use /tmp on Vercel Serverless where project root is read-only)
 const dataDir = process.env.VERCEL
@@ -36,17 +45,13 @@ if (!fs.existsSync(dataDir)) {
 
 // Initialize SQLite database
 const dbPath = path.join(dataDir, 'uangkas.db');
-const bundledDbPath = path.join(__dirname, 'data', 'uangkas.db');
-if (process.env.VERCEL && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
-  try {
-    fs.copyFileSync(bundledDbPath, dbPath);
-  } catch (e) {}
-}
 const db = new DatabaseSync(dbPath);
 
 // Enable WAL mode for better performance (skip WAL on serverless /tmp if unsupported)
 try {
-  db.exec('PRAGMA journal_mode = WAL;');
+  if (!process.env.VERCEL) {
+    db.exec('PRAGMA journal_mode = WAL;');
+  }
 } catch (e) {}
 
 // Initialize tables
@@ -128,7 +133,7 @@ try {
   db.exec("ALTER TABLE expenses ADD COLUMN verified_at TEXT;");
 } catch (e) {}
 
-// Seed default settings
+// Settings helpers
 const getSetting = (key, defaultVal) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row ? row.value : defaultVal;
@@ -137,6 +142,112 @@ const getSetting = (key, defaultVal) => {
 const setSetting = (key, value) => {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value));
 };
+
+// Apply a full database snapshot atomically inside a transaction
+const applySnapshotToDb = (snapshot) => {
+  if (!snapshot || !Array.isArray(snapshot.members)) return;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec('DELETE FROM contributions');
+    db.exec('DELETE FROM expenses');
+    db.exec('DELETE FROM members');
+
+    const insMember = db.prepare(`
+      INSERT INTO members (id, name, is_active, created_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const m of snapshot.members) {
+      insMember.run(m.id, m.name, m.is_active ?? 1, m.created_at || new Date().toISOString());
+    }
+
+    const insContrib = db.prepare(`
+      INSERT INTO contributions (
+        id, member_id, year, month, week, amount, is_paid, paid_at, notes,
+        pending_verification, status, payer_note, claimed_at, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const c of (snapshot.contributions || [])) {
+      if (Number(c.week) >= 1 && Number(c.week) <= 4) {
+        insContrib.run(
+          c.id,
+          c.member_id,
+          c.year,
+          c.month,
+          c.week,
+          c.amount ?? 5000,
+          c.is_paid ? 1 : 0,
+          c.paid_at || null,
+          c.notes || '',
+          c.pending_verification ? 1 : 0,
+          c.status || (c.is_paid ? 'verified' : 'unpaid'),
+          c.payer_note || null,
+          c.claimed_at || null,
+          c.verified_at || null
+        );
+      }
+    }
+
+    const insExpense = db.prepare(`
+      INSERT INTO expenses (
+        id, year, month, week, date, day_name, category, amount, pic, notes,
+        created_at, pending_verification, is_verified, verified_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const e of (snapshot.expenses || [])) {
+      insExpense.run(
+        e.id,
+        e.year,
+        e.month,
+        Math.min(Math.max(Number(e.week) || 1, 1), 4),
+        e.date,
+        e.day_name,
+        e.category,
+        e.amount,
+        e.pic || '',
+        e.notes || '',
+        e.created_at || new Date().toISOString(),
+        e.pending_verification ? 1 : 0,
+        e.is_verified !== undefined ? (e.is_verified ? 1 : 0) : (e.pending_verification ? 0 : 1),
+        e.verified_at || null
+      );
+    }
+
+    if (Array.isArray(snapshot.settings)) {
+      for (const s of snapshot.settings) {
+        if (s.key !== 'active_admin_token' && s.key !== 'admin_token_expires') {
+          setSetting(s.key, s.value);
+        }
+      }
+    }
+
+    if (Array.isArray(snapshot.security_alerts)) {
+      db.exec('DELETE FROM security_alerts');
+      const insAlert = db.prepare(`
+        INSERT INTO security_alerts (id, action, device_info, ip_address, is_read, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      for (const a of snapshot.security_alerts.slice(0, 50)) {
+        insAlert.run(a.id, a.action, a.device_info || '', a.ip_address || '', a.is_read ? 1 : 0, a.created_at || '');
+      }
+    }
+
+    setSetting('db_version', String(snapshot.version || Date.now()));
+    db.exec('COMMIT');
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (e) {}
+    console.error('Failed to apply snapshot:', err);
+  }
+};
+
+// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin)
+const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier'];
+const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
+const currentDbVersion = Number(getSetting('db_version', 0));
+
+if (countMembers === 0 || currentDbVersion < INITIAL_SNAPSHOT.version) {
+  applySnapshotToDb(INITIAL_SNAPSHOT);
+  console.log('✅ Database diinisialisasi dengan data asli Kas Kontrakan Cikarang Lembah Hijau!');
+}
 
 if (!getSetting('weekly_fee', null)) {
   setSetting('weekly_fee', '5000');
@@ -151,69 +262,10 @@ if (!currentSavedPin || currentSavedPin === '1234' || currentSavedPin === '15151
 if (!getSetting('admin_name', null) || getSetting('admin_name', null) === 'Javier') {
   setSetting('admin_name', 'Vier');
 }
-
-// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin)
-const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier'];
-const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
-
-// Migrate old names to new names:
-// Mazyan -> Ian, Dholla -> Dola, Javier -> Vier, Rayyan -> Ray
+// Clean up any legacy week > 4 contributions
 try {
-  db.exec("UPDATE members SET name = 'Ian' WHERE name = 'Mazyan';");
-  db.exec("UPDATE members SET name = 'Dola' WHERE name = 'Dholla';");
-  db.exec("UPDATE members SET name = 'Vier' WHERE name = 'Javier';");
-  db.exec("UPDATE members SET name = 'Ray' WHERE name = 'Rayyan';");
-  db.exec("UPDATE expenses SET pic = 'Ian' WHERE pic = 'Mazyan';");
-  db.exec("UPDATE expenses SET pic = 'Dola' WHERE pic = 'Dholla';");
-  db.exec("UPDATE expenses SET pic = 'Vier' WHERE pic = 'Javier';");
-  db.exec("UPDATE expenses SET pic = 'Ray' WHERE pic = 'Rayyan';");
-  db.exec("UPDATE expenses SET category = 'Gas Masak' WHERE category = 'Gas';");
+  db.exec('DELETE FROM contributions WHERE week > 4 OR week < 1');
 } catch (e) {}
-
-if (countMembers === 0) {
-  const insertMember = db.prepare('INSERT INTO members (name, is_active) VALUES (?, 1)');
-  for (const name of defaultMembers) {
-    insertMember.run(name);
-  }
-  console.log('✅ Inisialisasi 6 anggota kontrakan awal berhasil (Admin: Vier)!');
-
-  // Seed sample initial expenses (e.g. Isi Ulang Galon on Monday & Wednesday)
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-
-  // Insert a sample water refill (Rp 5.000)
-  const insertExp = db.prepare(`
-    INSERT INTO expenses (id, year, month, week, date, day_name, category, amount, pic, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  
-  // Format current ISO date
-  const isoDate = today.toISOString().split('T')[0];
-  insertExp.run(
-    `exp_${Date.now()}_1`,
-    year,
-    month,
-    1,
-    isoDate,
-    'Senin',
-    'Isi Ulang Air',
-    5000,
-    'Apip',
-    'Isi ulang air galon rutin hari Senin'
-  );
-}
-
-// Ensure any existing entries are updated to Rp 5.000 and 'Isi Ulang Air'
-try {
-  db.exec(`
-    UPDATE expenses 
-    SET amount = 5000, category = 'Isi Ulang Air' 
-    WHERE category LIKE '%Galon%' OR amount = 15000;
-  `);
-} catch (e) {
-  // Ignore
-}
 
 // Realtime SSE (Server-Sent Events) clients
 let sseClients = [];
@@ -368,6 +420,73 @@ const isAdminRequest = (req) => {
   const now = Date.now();
   return Boolean(activeToken && token === activeToken && (tokenExpires === 0 || now < tokenExpires));
 };
+
+// Export & Sign Full DB Snapshot (Tamper-Proof HMAC-SHA256)
+const exportSignedSnapshot = () => {
+  try {
+    const version = Number(getSetting('db_version', Date.now()));
+    const payloadObj = {
+      version,
+      members: db.prepare('SELECT * FROM members ORDER BY id ASC').all(),
+      contributions: db.prepare('SELECT * FROM contributions WHERE week >= 1 AND week <= 4').all(),
+      expenses: db.prepare('SELECT * FROM expenses').all(),
+      settings: db.prepare("SELECT * FROM settings WHERE key NOT IN ('active_admin_token', 'admin_token_expires')").all(),
+      security_alerts: db.prepare('SELECT * FROM security_alerts ORDER BY rowid DESC LIMIT 30').all(),
+    };
+    const b64 = Buffer.from(JSON.stringify(payloadObj), 'utf8').toString('base64');
+    const sig = crypto.createHmac('sha256', getTokenSecret()).update(b64).digest('hex');
+    return `${b64}.${sig}`;
+  } catch (err) {
+    return '';
+  }
+};
+
+// Verify & Restore Incoming Signed Snapshot if Newer than Local Serverless Container
+const syncIncomingSnapshot = (tokenStr) => {
+  if (!tokenStr || typeof tokenStr !== 'string' || !tokenStr.includes('.')) return;
+  try {
+    const [b64, sig] = tokenStr.split('.');
+    if (!b64 || !sig) return;
+    const expectedSig = crypto.createHmac('sha256', getTokenSecret()).update(b64).digest('hex');
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return; // Reject forged/invalid snapshot
+    }
+    const parsed = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+    const incomingVer = Number(parsed?.version || 0);
+    const localVer = Number(getSetting('db_version', 0));
+    if (incomingVer > localVer) {
+      applySnapshotToDb(parsed);
+    }
+  } catch (err) {
+    // Ignore malformed header
+  }
+};
+
+// Serverless Continuity Middleware: Sync before route & attach updated signed snapshot after route
+app.use('/api', (req, res, next) => {
+  if (req.path === '/events') return next();
+
+  const clientSnap = req.headers['x-uangkas-snapshot'];
+  if (clientSnap) {
+    syncIncomingSnapshot(String(clientSnap));
+  }
+
+  const origJson = res.json.bind(res);
+  res.json = (body) => {
+    if (req.method !== 'GET' && res.statusCode >= 200 && res.statusCode < 300) {
+      setSetting('db_version', String(Date.now()));
+    }
+    const latestSnap = exportSignedSnapshot();
+    if (latestSnap) {
+      res.setHeader('X-UangKas-Snapshot', latestSnap);
+    }
+    return origJson(body);
+  };
+
+  next();
+});
 
 // API: Admin Authentication (Vier) with Per-IP Brute-Force & Timing Attack Protection
 app.post('/api/admin/verify', (req, res) => {
@@ -968,6 +1087,143 @@ app.get('/api/summary', (req, res) => {
       isReady: martabakReady,
       portions: martabakPortions,
       remainingToTarget: Math.max(0, martabakTarget - currentBalance)
+    }
+  });
+});
+
+// API: Single Atomic State Endpoint (All dashboard data in 1 consistent request)
+app.get('/api/state', (req, res) => {
+  const year = Number(req.query.year) || new Date().getFullYear();
+  const month = Number(req.query.month) || (new Date().getMonth() + 1);
+  const ip = getLocalNetworkIp();
+
+  const members = db.prepare('SELECT * FROM members ORDER BY id ASC').all();
+  const activeMembers = members.filter((m) => m.is_active === 1);
+  const contributions = db.prepare('SELECT * FROM contributions WHERE year = ? AND month = ?').all(year, month);
+  const weeklyFee = Number(getSetting('weekly_fee', 5000));
+
+  const matrix = activeMembers.map((m) => {
+    const memberContribs = {};
+    for (let w = 1; w <= 4; w++) {
+      const match = contributions.find((c) => c.member_id === m.id && c.week === w);
+      memberContribs[w] = match || {
+        id: `${m.id}_${year}_${month}_${w}`,
+        member_id: m.id,
+        year,
+        month,
+        week: w,
+        amount: weeklyFee,
+        is_paid: 0,
+        paid_at: null,
+        notes: '',
+        pending_verification: 0,
+        status: 'unpaid',
+        payer_note: '',
+        claimed_at: null,
+        verified_at: null
+      };
+    }
+    return {
+      member: m,
+      weeks: memberContribs
+    };
+  });
+
+  const expenses = db.prepare(`
+    SELECT * FROM expenses 
+    WHERE year = ? AND month = ? 
+    ORDER BY pending_verification DESC, date DESC, created_at DESC
+  `).all(year, month);
+
+  const pendingPayments = db.prepare(`
+    SELECT c.*, m.name as member_name 
+    FROM contributions c
+    JOIN members m ON c.member_id = m.id
+    WHERE c.pending_verification = 1 AND c.year = ? AND c.month = ?
+    ORDER BY c.claimed_at DESC
+  `).all(year, month);
+
+  const pendingExpenses = db.prepare(`
+    SELECT * FROM expenses
+    WHERE pending_verification = 1 AND year = ? AND month = ?
+    ORDER BY created_at DESC
+  `).all(year, month);
+
+  const incomeRow = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as total 
+    FROM contributions 
+    WHERE year = ? AND month = ? AND is_paid = 1
+  `).get(year, month);
+  const monthlyIncome = incomeRow ? incomeRow.total : 0;
+
+  const expenseRow = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as total 
+    FROM expenses 
+    WHERE year = ? AND month = ? AND pending_verification = 0
+  `).get(year, month);
+  const monthlyExpense = expenseRow ? expenseRow.total : 0;
+
+  const allIncomeRow = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM contributions WHERE is_paid = 1').get();
+  const allExpenseRow = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM expenses WHERE pending_verification = 0').get();
+  const allTimeIncome = allIncomeRow ? allIncomeRow.total : 0;
+  const allTimeExpense = allExpenseRow ? allExpenseRow.total : 0;
+  const currentBalance = allTimeIncome - allTimeExpense;
+
+  const expectedMonthlyTotal = activeMembers.length * 4 * weeklyFee;
+  const martabakTarget = Number(getSetting('martabak_target', 50000));
+  const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
+  const martabakReady = currentBalance >= martabakTarget;
+  const martabakPortions = Math.max(0, Math.floor(currentBalance / martabakTarget));
+
+  const pendingVerificationsCount = pendingPayments.length + pendingExpenses.length;
+  const secCountRow = db.prepare('SELECT COUNT(*) as count FROM security_alerts WHERE is_read = 0').get();
+  const securityAlertsCount = secCountRow ? secCountRow.count : 0;
+
+  const securityAlerts = isAdminRequest(req)
+    ? db.prepare('SELECT * FROM security_alerts ORDER BY rowid DESC LIMIT 30').all()
+    : [];
+
+  res.json({
+    info: {
+      appName: 'Uang Kas Kontrakan',
+      localIp: ip,
+      port: PORT,
+      laptopUrl: `http://localhost:${PORT}`,
+      mobileUrl: `http://${ip}:${PORT}`,
+      connectedClients: sseClients.length,
+      defaultMembers,
+      weeklyFee,
+      martabakTarget,
+      adminName: getSetting('admin_name', 'Vier'),
+    },
+    members,
+    contributions: { year, month, matrix },
+    expenses,
+    pendingPayments,
+    pendingExpenses,
+    securityAlerts,
+    summary: {
+      year,
+      month,
+      monthlyIncome,
+      monthlyExpense,
+      monthlyNet: monthlyIncome - monthlyExpense,
+      currentBalance,
+      allTimeIncome,
+      allTimeExpense,
+      activeMembersCount: activeMembers.length,
+      expectedMonthlyTotal,
+      unpaidAmount: Math.max(0, expectedMonthlyTotal - monthlyIncome),
+      pendingVerificationsCount,
+      securityAlertsCount,
+      martabak: {
+        target: martabakTarget,
+        currentBalance,
+        progress: martabakProgress,
+        isReady: martabakReady,
+        portions: martabakPortions,
+        remainingToTarget: Math.max(0, martabakTarget - currentBalance)
+      }
     }
   });
 });

@@ -91,28 +91,18 @@ export const App: React.FC = () => {
     }
   };
 
-  // Load all data
+  // Load all data in 1 atomic request
   const loadData = useCallback(async () => {
     try {
-      const [infoRes, membersRes, contribRes, expensesRes, summaryRes, pendingRes] = await Promise.all([
-        api.getInfo(),
-        api.getMembers(),
-        api.getContributions(currentYear, currentMonth),
-        api.getExpenses(currentYear, currentMonth),
-        api.getSummary(currentYear, currentMonth),
-        api.getPendingPayments(currentYear, currentMonth),
-      ]);
-
-      setSystemInfo(infoRes);
-      setMembers(membersRes);
-      setMatrix(contribRes.matrix);
-      setExpenses(expensesRes);
-      setSummary(summaryRes);
-      setPendingPayments(pendingRes);
-
+      const state = await api.getState(currentYear, currentMonth);
+      setSystemInfo(state.info);
+      setMembers(state.members);
+      setMatrix(state.contributions.matrix);
+      setExpenses(state.expenses);
+      setSummary(state.summary);
+      setPendingPayments(state.pendingPayments);
       if (localStorage.getItem('uangkas_admin_token')) {
-        const alertsRes = await api.getSecurityAlerts();
-        setSecurityAlerts(alertsRes);
+        setSecurityAlerts(state.securityAlerts || []);
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -149,8 +139,7 @@ export const App: React.FC = () => {
     setIsAdmin(true);
     setUnauthorizedNotice(undefined);
     localStorage.setItem('uangkas_is_admin', 'true');
-    const alertsRes = await api.getSecurityAlerts();
-    setSecurityAlerts(alertsRes);
+    await loadData();
   };
 
   const handleAdminLogout = async () => {
@@ -163,14 +152,16 @@ export const App: React.FC = () => {
   };
 
   // Triggered when a non-admin clicks a modify button OR manually clicks Admin Login
-  const handleRequestAdminLogin = async (attemptedAction?: string) => {
+  // Opens modal INSTANTLY (0ms) and logs security alert asynchronously
+  const handleRequestAdminLogin = (attemptedAction?: string) => {
     if (attemptedAction && !isAdmin) {
       setUnauthorizedNotice(attemptedAction);
-      await api.reportUnauthorizedAttempt(attemptedAction);
+      setIsAdminModalOpen(true);
+      api.reportUnauthorizedAttempt(attemptedAction).catch(() => {});
     } else {
       setUnauthorizedNotice(undefined);
+      setIsAdminModalOpen(true);
     }
-    setIsAdminModalOpen(true);
   };
 
   const handleClearSecurityAlerts = async () => {
@@ -188,7 +179,6 @@ export const App: React.FC = () => {
   // Setup Real-time SSE subscription (instant sync across Laptop, Android, and iOS!)
   useEffect(() => {
     const unsubscribe = api.subscribeEvents((event) => {
-      console.log('⚡ Data update received via Realtime SSE:', event);
       if (event?.type === 'security_alert' && event.alert) {
         if (localStorage.getItem('uangkas_admin_token')) {
           setLiveSecurityToast(event.alert);
@@ -221,12 +211,33 @@ export const App: React.FC = () => {
     setCurrentYear(newYear);
   };
 
-  // Contributions Actions (Admin only)
+  // Contributions Actions (Admin only) - with Instant Optimistic UI Update!
   const handleTogglePayment = async (memberId: number, week: number, isPaid: boolean) => {
     if (!isAdmin) {
       handleRequestAdminLogin(`Mencoba mengubah status kas minggu M${week}`);
       return;
     }
+
+    // Optimistic UI update (0ms response)
+    setMatrix((prev) =>
+      prev.map((row) => {
+        if (row.member.id !== memberId) return row;
+        const currentCell = row.weeks[week];
+        return {
+          ...row,
+          weeks: {
+            ...row.weeks,
+            [week]: {
+              ...currentCell,
+              is_paid: isPaid ? 1 : 0,
+              pending_verification: 0,
+              status: isPaid ? 'verified' : 'unpaid',
+            },
+          },
+        };
+      })
+    );
+
     await api.toggleContribution({
       member_id: memberId,
       year: currentYear,
@@ -242,6 +253,24 @@ export const App: React.FC = () => {
       handleRequestAdminLogin('Mencoba mengubah status Lunas 1 Bulan');
       return;
     }
+
+    // Optimistic UI update (0ms response)
+    setMatrix((prev) =>
+      prev.map((row) => {
+        if (row.member.id !== memberId) return row;
+        const updatedWeeks = { ...row.weeks };
+        for (const w of [1, 2, 3, 4]) {
+          updatedWeeks[w] = {
+            ...updatedWeeks[w],
+            is_paid: 1,
+            pending_verification: 0,
+            status: 'verified',
+          };
+        }
+        return { ...row, weeks: updatedWeeks };
+      })
+    );
+
     await api.batchPay({
       member_id: memberId,
       year: currentYear,

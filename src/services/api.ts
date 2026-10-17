@@ -1,20 +1,74 @@
 import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem } from '../types';
 
 const API_BASE = '/api';
+const SNAPSHOT_STORAGE_KEY = 'uangkas_signed_snapshot';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('uangkas_admin_token') || '';
-  return {
+  const snapshot = localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '';
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'x-admin-token': token,
   };
+  if (snapshot) {
+    headers['x-uangkas-snapshot'] = snapshot;
+  }
+  return headers;
 };
 
+const fetchWithSync = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const snapshot = localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '';
+  const existingHeaders = (options.headers as Record<string, string>) || {};
+  const mergedHeaders: Record<string, string> = {
+    ...existingHeaders,
+  };
+  if (snapshot && !mergedHeaders['x-uangkas-snapshot']) {
+    mergedHeaders['x-uangkas-snapshot'] = snapshot;
+  }
+
+  const res = await fetch(url, {
+    ...options,
+    cache: 'no-store',
+    headers: mergedHeaders,
+  });
+
+  const newSnapshot = res.headers.get('x-uangkas-snapshot');
+  if (newSnapshot) {
+    try {
+      localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+
+  return res;
+};
+
+export interface FullAppState {
+  info: SystemInfo;
+  members: Member[];
+  contributions: { year: number; month: number; matrix: MemberWeeklyRow[] };
+  expenses: Expense[];
+  pendingPayments: PendingVerificationItem[];
+  pendingExpenses: Expense[];
+  securityAlerts: SecurityAlertItem[];
+  summary: SummaryData;
+}
+
 export const api = {
+  // Single Atomic State Load (Fetches all data consistently in 1 HTTP request)
+  async getState(year: number, month: number): Promise<FullAppState> {
+    const res = await fetchWithSync(`${API_BASE}/state?year=${year}&month=${month}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Gagal memuat data aplikasi');
+    return await res.json();
+  },
+
   // System Info
   async getInfo(): Promise<SystemInfo> {
     try {
-      const res = await fetch(`${API_BASE}/info`);
+      const res = await fetchWithSync(`${API_BASE}/info`);
       if (!res.ok) throw new Error('Failed to fetch system info');
       return await res.json();
     } catch (err) {
@@ -36,7 +90,7 @@ export const api = {
 
   // Admin Verification (Vier)
   async verifyAdminPin(pin: string): Promise<{ success: boolean; adminName: string; token: string }> {
-    const res = await fetch(`${API_BASE}/admin/verify`, {
+    const res = await fetchWithSync(`${API_BASE}/admin/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pin }),
@@ -53,7 +107,7 @@ export const api = {
   },
 
   async changeAdminPin(currentPin: string, newPin: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/admin/change-pin`, {
+    const res = await fetchWithSync(`${API_BASE}/admin/change-pin`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ currentPin, newPin }),
@@ -68,7 +122,7 @@ export const api = {
     const token = localStorage.getItem('uangkas_admin_token');
     if (!token) return false;
     try {
-      const res = await fetch(`${API_BASE}/admin/check-auth`, {
+      const res = await fetchWithSync(`${API_BASE}/admin/check-auth`, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) return false;
@@ -81,7 +135,7 @@ export const api = {
 
   async logoutAdmin(): Promise<void> {
     try {
-      await fetch(`${API_BASE}/admin/logout`, {
+      await fetchWithSync(`${API_BASE}/admin/logout`, {
         method: 'POST',
         headers: getAuthHeaders(),
       });
@@ -96,7 +150,7 @@ export const api = {
   // Security Alerts & Unauthorized Attempt Notification
   async reportUnauthorizedAttempt(action: string): Promise<void> {
     try {
-      await fetch(`${API_BASE}/security/report-attempt`, {
+      await fetchWithSync(`${API_BASE}/security/report-attempt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
@@ -108,7 +162,7 @@ export const api = {
 
   async getSecurityAlerts(): Promise<SecurityAlertItem[]> {
     try {
-      const res = await fetch(`${API_BASE}/security/alerts`, {
+      const res = await fetchWithSync(`${API_BASE}/security/alerts`, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) return [];
@@ -119,7 +173,7 @@ export const api = {
   },
 
   async clearSecurityAlerts(): Promise<void> {
-    await fetch(`${API_BASE}/security/alerts/clear`, {
+    await fetchWithSync(`${API_BASE}/security/alerts/clear`, {
       method: 'POST',
       headers: getAuthHeaders(),
     });
@@ -127,13 +181,13 @@ export const api = {
 
   // Members
   async getMembers(): Promise<Member[]> {
-    const res = await fetch(`${API_BASE}/members`);
+    const res = await fetchWithSync(`${API_BASE}/members`);
     if (!res.ok) throw new Error('Failed to fetch members');
     return await res.json();
   },
 
   async addMember(name: string): Promise<Member> {
-    const res = await fetch(`${API_BASE}/members`, {
+    const res = await fetchWithSync(`${API_BASE}/members`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ name }),
@@ -146,7 +200,7 @@ export const api = {
   },
 
   async deleteMember(id: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/members/${id}`, { 
+    const res = await fetchWithSync(`${API_BASE}/members/${id}`, { 
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -158,7 +212,7 @@ export const api = {
 
   // Contributions Matrix
   async getContributions(year: number, month: number): Promise<{ year: number; month: number; matrix: MemberWeeklyRow[] }> {
-    const res = await fetch(`${API_BASE}/contributions?year=${year}&month=${month}`);
+    const res = await fetchWithSync(`${API_BASE}/contributions?year=${year}&month=${month}`);
     if (!res.ok) throw new Error('Failed to fetch contributions');
     return await res.json();
   },
@@ -171,7 +225,7 @@ export const api = {
     is_paid: boolean;
     notes?: string;
   }): Promise<void> {
-    const res = await fetch(`${API_BASE}/contributions/toggle`, {
+    const res = await fetchWithSync(`${API_BASE}/contributions/toggle`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -188,7 +242,7 @@ export const api = {
     month: number;
     weeksToPay?: number[];
   }): Promise<void> {
-    const res = await fetch(`${API_BASE}/contributions/batch-pay`, {
+    const res = await fetchWithSync(`${API_BASE}/contributions/batch-pay`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
@@ -208,7 +262,7 @@ export const api = {
     weeks?: number[];
     payer_note?: string;
   }): Promise<void> {
-    const res = await fetch(`${API_BASE}/contributions/claim`, {
+    const res = await fetchWithSync(`${API_BASE}/contributions/claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -220,7 +274,7 @@ export const api = {
   },
 
   async verifyPayment(id: string, approve: boolean): Promise<void> {
-    const res = await fetch(`${API_BASE}/contributions/verify`, {
+    const res = await fetchWithSync(`${API_BASE}/contributions/verify`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ id, approve }),
@@ -232,7 +286,7 @@ export const api = {
   },
 
   async verifyAllPayments(year: number, month: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/contributions/verify-all`, {
+    const res = await fetchWithSync(`${API_BASE}/contributions/verify-all`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ year, month }),
@@ -251,14 +305,14 @@ export const api = {
     const qs = params.toString();
     if (qs) url += `?${qs}`;
 
-    const res = await fetch(url);
+    const res = await fetchWithSync(url);
     if (!res.ok) throw new Error('Failed to fetch pending payments');
     return await res.json();
   },
 
   // Expenses
   async getExpenses(year: number, month: number): Promise<Expense[]> {
-    const res = await fetch(`${API_BASE}/expenses?year=${year}&month=${month}`);
+    const res = await fetchWithSync(`${API_BASE}/expenses?year=${year}&month=${month}`);
     if (!res.ok) throw new Error('Failed to fetch expenses');
     return await res.json();
   },
@@ -271,13 +325,13 @@ export const api = {
     const qs = params.toString();
     if (qs) url += `?${qs}`;
 
-    const res = await fetch(url);
+    const res = await fetchWithSync(url);
     if (!res.ok) return [];
     return await res.json();
   },
 
   async addExpense(expense: Omit<Expense, 'id'>): Promise<{ success: boolean; id: string; pending_verification?: number; is_verified?: number }> {
-    const res = await fetch(`${API_BASE}/expenses`, {
+    const res = await fetchWithSync(`${API_BASE}/expenses`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(expense),
@@ -290,7 +344,7 @@ export const api = {
   },
 
   async verifyExpense(id: string, approve: boolean): Promise<void> {
-    const res = await fetch(`${API_BASE}/expenses/verify`, {
+    const res = await fetchWithSync(`${API_BASE}/expenses/verify`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ id, approve }),
@@ -302,7 +356,7 @@ export const api = {
   },
 
   async updateExpense(id: string, expense: Partial<Expense>): Promise<void> {
-    const res = await fetch(`${API_BASE}/expenses/${id}`, {
+    const res = await fetchWithSync(`${API_BASE}/expenses/${id}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(expense),
@@ -314,7 +368,7 @@ export const api = {
   },
 
   async deleteExpense(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/expenses/${id}`, { 
+    const res = await fetchWithSync(`${API_BASE}/expenses/${id}`, { 
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -326,19 +380,25 @@ export const api = {
 
   // Summary
   async getSummary(year: number, month: number): Promise<SummaryData> {
-    const res = await fetch(`${API_BASE}/summary?year=${year}&month=${month}`);
+    const res = await fetchWithSync(`${API_BASE}/summary?year=${year}&month=${month}`);
     if (!res.ok) throw new Error('Failed to fetch summary');
     return await res.json();
   },
 
-  // Realtime Sync Listener (SSE)
+  // Realtime Sync Listener (SSE for local/persistent servers; disabled on Vercel Serverless to prevent reconnect loops)
   subscribeEvents(onDataChange: (event: any) => void): () => void {
+    const isVercel = window.location.hostname.includes('vercel.app');
+    if (isVercel) {
+      return () => {};
+    }
+
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource(`${API_BASE}/events`);
       eventSource.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
+          if (data?.type === 'CONNECTED') return;
           onDataChange(data);
         } catch (err) {
           console.error('Error parsing SSE data:', err);

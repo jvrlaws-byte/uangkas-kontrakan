@@ -42,8 +42,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     { name: 'Lain-lain', defaultAmount: null, icon: '📦' },
   ];
 
-  // Initialize form
+  // Initialize form ONLY when modal opens or editingExpense/initialData changes
   useEffect(() => {
+    if (!isOpen) return;
     if (editingExpense) {
       setDate(editingExpense.date);
       setDayName(editingExpense.day_name);
@@ -66,11 +67,12 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
 
       const chosenCategory = initialData?.category || 'Isi Ulang Air';
       setCategory(chosenCategory);
-      setAmount(initialData?.amount !== undefined ? initialData.amount : (chosenCategory === 'Isi Ulang Air' ? 5000 : 5000));
-      setPic(initialData?.pic || (members[0]?.name || ''));
+      setAmount(initialData?.amount !== undefined ? initialData.amount : 5000);
+      setPic(initialData?.pic || members[0]?.name || 'Bayu');
       setNotes(initialData?.notes || '');
     }
-  }, [editingExpense, initialData, isOpen, members]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingExpense, initialData]);
 
   // Android hardware back button & ESC key support
   useEffect(() => {
