@@ -26,18 +26,28 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json({ limit: '50kb' }));
 
-// Ensure data folder exists
-const dataDir = path.join(__dirname, 'data');
+// Ensure data folder exists (use /tmp on Vercel Serverless where project root is read-only)
+const dataDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'uangkas-data')
+  : path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 // Initialize SQLite database
 const dbPath = path.join(dataDir, 'uangkas.db');
+const bundledDbPath = path.join(__dirname, 'data', 'uangkas.db');
+if (process.env.VERCEL && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
+  try {
+    fs.copyFileSync(bundledDbPath, dbPath);
+  } catch (e) {}
+}
 const db = new DatabaseSync(dbPath);
 
-// Enable WAL mode for better performance
-db.exec('PRAGMA journal_mode = WAL;');
+// Enable WAL mode for better performance (skip WAL on serverless /tmp if unsupported)
+try {
+  db.exec('PRAGMA journal_mode = WAL;');
+} catch (e) {}
 
 // Initialize tables
 db.exec(`
@@ -220,6 +230,11 @@ app.get('/api/events', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
+
+  if (process.env.VERCEL) {
+    res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`);
+    return res.end();
+  }
 
   const clientId = Date.now() + Math.random();
   const newClient = { id: clientId, res };
@@ -946,11 +961,15 @@ if (fs.existsSync(distPath)) {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  const ip = getLocalNetworkIp();
-  console.log('\n======================================================');
-  console.log('🏠  UANG KAS KONTRAKAN BERHASIL DIJALANKAN!');
-  console.log(`💻  Akses Laptop  : http://localhost:${PORT}`);
-  console.log(`📱  Akses Android : http://${ip}:${PORT}`);
-  console.log('======================================================\n');
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    const ip = getLocalNetworkIp();
+    console.log('\n======================================================');
+    console.log('🏠  UANG KAS KONTRAKAN BERHASIL DIJALANKAN!');
+    console.log(`💻  Akses Laptop  : http://localhost:${PORT}`);
+    console.log(`📱  Akses Android : http://${ip}:${PORT}`);
+    console.log('======================================================\n');
+  });
+}
+
+export default app;
