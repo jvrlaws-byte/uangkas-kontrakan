@@ -20,6 +20,8 @@ export const MemberModal: React.FC<MemberModalProps> = ({
   const [newName, setNewName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteMember, setConfirmDeleteMember] = useState<{ id: number; name: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -28,26 +30,28 @@ export const MemberModal: React.FC<MemberModalProps> = ({
     if (!newName.trim()) return;
 
     setIsSubmitting(true);
+    setErrorMsg(null);
     try {
       await onAddMember(newName.trim());
       setNewName('');
     } catch (err: any) {
-      alert(err.message || 'Gagal menambah anggota');
+      setErrorMsg(err.message || 'Gagal menambah anggota');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (window.confirm(`Yakin ingin menghapus ${name} dari daftar anak kontrakan?`)) {
-      setDeletingId(id);
-      try {
-        await onDeleteMember(id);
-      } catch (err: any) {
-        alert(err.message || 'Gagal menghapus');
-      } finally {
-        setDeletingId(null);
-      }
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteMember) return;
+    setDeletingId(confirmDeleteMember.id);
+    setErrorMsg(null);
+    try {
+      await onDeleteMember(confirmDeleteMember.id);
+      setConfirmDeleteMember(null);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal menghapus');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -96,6 +100,37 @@ export const MemberModal: React.FC<MemberModalProps> = ({
             </button>
           </form>
 
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-medium text-rose-400">
+              {errorMsg}
+            </div>
+          )}
+
+          {confirmDeleteMember && (
+            <div className="p-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-rose-200">
+                Yakin hapus <strong>{confirmDeleteMember.name}</strong> dari daftar?
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteMember(null)}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deletingId === confirmDeleteMember.id}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white"
+                >
+                  {deletingId === confirmDeleteMember.id ? 'Menghapus...' : 'Ya, Hapus'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Members List */}
           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
             {members.map((m, index) => (
@@ -114,7 +149,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
                 </div>
 
                 <button
-                  onClick={() => handleDelete(m.id, m.name)}
+                  onClick={() => setConfirmDeleteMember({ id: m.id, name: m.name })}
                   disabled={deletingId === m.id}
                   className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
                   title={`Hapus ${m.name}`}

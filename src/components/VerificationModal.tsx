@@ -37,6 +37,7 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [loadingAll, setLoadingAll] = useState<boolean>(false);
   const [clearingSec, setClearingSec] = useState<boolean>(false);
+  const [confirmVerifyAll, setConfirmVerifyAll] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -63,14 +64,13 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
   };
 
   const handleVerifyAll = async () => {
-    if (window.confirm(`Setujui semua (${totalPendingCount}) antrean verifikasi (kas & pengeluaran)?`)) {
-      setLoadingAll(true);
-      try {
-        await onVerifyAll();
-        onClose();
-      } finally {
-        setLoadingAll(false);
-      }
+    setLoadingAll(true);
+    try {
+      await onVerifyAll();
+      setConfirmVerifyAll(false);
+      onClose();
+    } finally {
+      setLoadingAll(false);
     }
   };
 
@@ -351,20 +351,44 @@ export const VerificationModal: React.FC<VerificationModalProps> = ({
         {/* Footer */}
         <div className="p-3.5 sm:p-4 border-t border-slate-800 bg-slate-850 shrink-0 flex items-center justify-between gap-3 pb-safe">
           {totalPendingCount > 0 ? (
-            <>
-              <span className="text-xs text-slate-400">
-                Total: <strong>{totalPendingCount} menunggu</strong> ({pendingList.length} kas, {pendingExpenses.length} pengeluaran)
-              </span>
+            confirmVerifyAll ? (
+              <div className="flex items-center justify-between w-full gap-2">
+                <span className="text-xs font-bold text-emerald-300">
+                  Setujui semua {totalPendingCount} antrean sekaligus?
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setConfirmVerifyAll(false)}
+                    disabled={loadingAll}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleVerifyAll}
+                    disabled={loadingAll}
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition"
+                  >
+                    {loadingAll ? 'Memproses...' : 'Ya, Setujui Semua'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="text-xs text-slate-400">
+                  Total: <strong>{totalPendingCount} menunggu</strong> ({pendingList.length} kas, {pendingExpenses.length} pengeluaran)
+                </span>
 
-              <button
-                onClick={handleVerifyAll}
-                disabled={loadingAll}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-md shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50 flex items-center shrink-0"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                {loadingAll ? 'Memproses...' : `Setujui Semua (${totalPendingCount})`}
-              </button>
-            </>
+                <button
+                  onClick={() => setConfirmVerifyAll(true)}
+                  disabled={loadingAll}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 text-white shadow-md shadow-emerald-600/30 transition active:scale-95 disabled:opacity-50 flex items-center shrink-0"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  {loadingAll ? 'Memproses...' : `Setujui Semua (${totalPendingCount})`}
+                </button>
+              </>
+            )
           ) : (
             <button
               onClick={onClose}

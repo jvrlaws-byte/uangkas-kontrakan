@@ -42,6 +42,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ exp: Expense; mode: 'delete' | 'reject' } | null>(null);
 
   // Indonesian day helper (no "Semua")
   const days = ['Hari', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
@@ -70,17 +71,32 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     return true;
   });
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (exp: Expense) => {
     if (!isAdmin) {
       onRequestAdminLogin('Mencoba menghapus data pengeluaran kas');
       return;
     }
-    if (window.confirm('Yakin ingin menghapus catatan pengeluaran ini?')) {
-      setDeletingId(id);
+    setConfirmTarget({ exp, mode: 'delete' });
+  };
+
+  const executeConfirmedAction = async () => {
+    if (!confirmTarget) return;
+    const { exp, mode } = confirmTarget;
+    if (mode === 'delete') {
+      setDeletingId(exp.id);
       try {
-        await onDeleteExpense(id);
+        await onDeleteExpense(exp.id);
+        setConfirmTarget(null);
       } finally {
         setDeletingId(null);
+      }
+    } else if (mode === 'reject' && onVerifyExpense) {
+      setVerifyingId(exp.id);
+      try {
+        await onVerifyExpense(exp.id, false);
+        setConfirmTarget(null);
+      } finally {
+        setVerifyingId(null);
       }
     }
   };
@@ -95,12 +111,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   const handleVerify = async (exp: Expense, approve: boolean) => {
     if (!isAdmin || !onVerifyExpense) return;
-    if (!approve && !window.confirm(`Tolak & hapus laporan pengeluaran "${exp.category} - Rp ${exp.amount.toLocaleString('id-ID')}" (${exp.pic || 'Teman'})?`)) {
+    if (!approve) {
+      setConfirmTarget({ exp, mode: 'reject' });
       return;
     }
     setVerifyingId(exp.id);
     try {
-      await onVerifyExpense(exp.id, approve);
+      await onVerifyExpense(exp.id, true);
     } finally {
       setVerifyingId(null);
     }
@@ -180,8 +197,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               onClick={() => {
                 onOpenAddModal({
                   category: 'Sabun Cuci Piring',
-                  amount: 15000,
-                  notes: 'Beli sabun cuci piring (Sunlight/Mama Lemon)',
+                  amount: 8000,
+                  notes: 'Beli sabun cuci piring',
                 });
               }}
               className="inline-flex items-center justify-center sm:justify-start px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-semibold bg-teal-950/60 hover:bg-teal-900/80 text-teal-300 border border-teal-800/70 transition active:scale-95 shadow-sm truncate"
@@ -385,7 +402,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDelete(exp.id)}
+                          onClick={() => handleDelete(exp)}
                           disabled={isDeleting}
                           className="p-1.5 rounded-lg bg-rose-950/40 text-rose-400 active:bg-rose-900/60 transition"
                           title={isAdmin ? "Hapus" : "Hanya Admin (Vier)"}
@@ -533,7 +550,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(exp.id)}
+                              onClick={() => handleDelete(exp)}
                               disabled={isDeleting}
                               className="p-1.5 rounded-lg hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 transition"
                               title={isAdmin ? "Hapus Pengeluaran" : "Hanya Admin (Vier)"}
@@ -552,6 +569,82 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Custom Sleek Delete / Reject Confirmation Pop-Up Modal */}
+      {confirmTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmTarget(null);
+          }}
+        >
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shadow-lg shadow-rose-500/10">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="font-extrabold text-base sm:text-lg text-white">
+                {confirmTarget.mode === 'delete'
+                  ? 'Hapus Catatan Pengeluaran?'
+                  : 'Tolak Laporan Pengeluaran?'}
+              </h4>
+              <p className="text-xs text-slate-400">
+                {confirmTarget.mode === 'delete'
+                  ? 'Catatan ini akan dihapus permanen dan saldo kas akan otomatis disesuaikan.'
+                  : 'Laporan pengeluaran dari teman ini akan ditolak dan dihapus dari daftar antrean.'}
+              </p>
+            </div>
+
+            {/* Expense Detail Box */}
+            <div className="bg-slate-850 border border-slate-800 rounded-2xl p-3.5 text-left space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white">
+                  {confirmTarget.exp.category}
+                </span>
+                <span className="text-xs font-extrabold text-rose-400">
+                  -Rp {confirmTarget.exp.amount.toLocaleString('id-ID')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <span>{confirmTarget.exp.day_name}, {confirmTarget.exp.date} (M{confirmTarget.exp.week})</span>
+                <span>PIC: <strong className="text-slate-300">{confirmTarget.exp.pic || '-'}</strong></span>
+              </div>
+              {confirmTarget.exp.notes && (
+                <p className="text-[11px] text-slate-500 truncate pt-1 border-t border-slate-800/80">
+                  "{confirmTarget.exp.notes}"
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmTarget(null)}
+                disabled={Boolean(deletingId || verifyingId)}
+                className="py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeConfirmedAction}
+                disabled={Boolean(deletingId || verifyingId)}
+                className="py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition active:scale-95 flex items-center justify-center space-x-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>
+                  {deletingId || verifyingId
+                    ? 'Menghapus...'
+                    : confirmTarget.mode === 'delete'
+                      ? 'Ya, Hapus'
+                      : 'Ya, Tolak'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

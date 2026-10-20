@@ -1091,6 +1091,47 @@ app.get('/api/summary', (req, res) => {
   });
 });
 
+// API: Yearly Monthly Recap Report (Januari - Desember)
+app.get('/api/reports/yearly', (req, res) => {
+  const year = Number(req.query.year) || new Date().getFullYear();
+
+  const contribRows = db.prepare(`
+    SELECT month, COALESCE(SUM(amount), 0) as income, COUNT(*) as paid_weeks
+    FROM contributions
+    WHERE year = ? AND is_paid = 1
+    GROUP BY month
+  `).all(year);
+
+  const expenseRows = db.prepare(`
+    SELECT month, COALESCE(SUM(amount), 0) as expense, COUNT(*) as expense_count
+    FROM expenses
+    WHERE year = ? AND pending_verification = 0
+    GROUP BY month
+  `).all(year);
+
+  const months = [];
+  let runningBalance = 0;
+  for (let m = 1; m <= 12; m++) {
+    const cMatch = contribRows.find((r) => Number(r.month) === m);
+    const eMatch = expenseRows.find((r) => Number(r.month) === m);
+    const income = cMatch ? Number(cMatch.income) : 0;
+    const expense = eMatch ? Number(eMatch.expense) : 0;
+    const net = income - expense;
+    runningBalance += net;
+    months.push({
+      month: m,
+      income,
+      expense,
+      net,
+      runningBalance,
+      paidWeeks: cMatch ? Number(cMatch.paid_weeks) : 0,
+      expenseCount: eMatch ? Number(eMatch.expense_count) : 0,
+    });
+  }
+
+  res.json({ year, months });
+});
+
 // API: Single Atomic State Endpoint (All dashboard data in 1 consistent request)
 app.get('/api/state', (req, res) => {
   const year = Number(req.query.year) || new Date().getFullYear();

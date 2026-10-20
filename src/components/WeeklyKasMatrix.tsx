@@ -11,7 +11,8 @@ import {
   Send, 
   ShieldCheck, 
   XCircle,
-  AlertCircle 
+  AlertCircle,
+  FileSpreadsheet
 } from 'lucide-react';
 import { MemberWeeklyRow } from '../types';
 
@@ -26,6 +27,7 @@ interface WeeklyKasMatrixProps {
   onRequestAdminLogin: (attemptedAction?: string) => void;
   onOpenClaimModal: (memberId?: number, week?: number) => void;
   onOpenVerificationModal: () => void;
+  onOpenReportModal?: () => void;
   onQuickVerify?: (id: string, approve: boolean) => Promise<void>;
 }
 
@@ -40,6 +42,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
   onRequestAdminLogin,
   onOpenClaimModal,
   onOpenVerificationModal,
+  onOpenReportModal,
   onQuickVerify,
 }) => {
   const [loadingCell, setLoadingCell] = useState<string | null>(null);
@@ -48,11 +51,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
   const handleCellClick = async (memberId: number, week: number, isPaid: boolean, isPending: boolean, contribId: string, memberName: string) => {
     if (isAdmin) {
       if (isPending) {
-        // Vier clicks a pending item -> directly ask to approve or reject
-        const action = window.confirm(
-          `Pembayaran M${week} ${memberName} (Rp 5.000) sedang menunggu verifikasi lo.\n\nKlik OK untuk SETUJUI / LUNAS.\nKlik Batal jika ingin mengecek detail klaim.`
-        );
-        if (action && onQuickVerify) {
+        if (onQuickVerify) {
           setLoadingCell(`${memberId}_${week}`);
           try {
             await onQuickVerify(contribId, true);
@@ -76,21 +75,11 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
     } else {
       // Roommate / Viewer mode
       if (isPending) {
-        const wantVerify = window.confirm(
-          `Pembayaran M${week} (${memberName}) sedang menunggu verifikasi Vier.\n\nKlik OK jika lo adalah Vier (Admin) dan ingin memverifikasi.`
-        );
-        if (wantVerify) {
-          onRequestAdminLogin(`Mencoba memverifikasi pembayaran M${week} (${memberName}) tanpa akses Admin`);
-        }
+        onRequestAdminLogin(`Mencoba memverifikasi pembayaran M${week} (${memberName}) tanpa akses Admin`);
         return;
       }
       if (isPaid) {
-        const wantModify = window.confirm(
-          `Iuran M${week} untuk ${memberName} sudah Lunas & Terverifikasi.\n\nKlik OK jika ingin mengubah status data ini (Khusus Admin Vier).`
-        );
-        if (wantModify) {
-          onRequestAdminLogin(`Mencoba mengubah status Lunas M${week} (${memberName})`);
-        }
+        onRequestAdminLogin(`Mencoba mengubah status Lunas M${week} (${memberName})`);
         return;
       }
       // Unpaid -> open claim modal with pre-selected member & week
@@ -166,6 +155,18 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
             <Send className="w-3.5 h-3.5 mr-1.5" />
             Lapor Sudah Bayar
           </button>
+
+          {/* Laporan Kas Bulanan Button */}
+          {onOpenReportModal && (
+            <button
+              onClick={onOpenReportModal}
+              className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-sm transition active:scale-95"
+              title="Lihat Laporan Kas Bulanan & Rekap Tahunan"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+              Laporan Bulanan
+            </button>
+          )}
 
           {/* Verification Modal Trigger for Vier */}
           {isAdmin && pendingCount > 0 && (

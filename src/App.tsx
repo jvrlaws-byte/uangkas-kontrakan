@@ -143,12 +143,10 @@ export const App: React.FC = () => {
   };
 
   const handleAdminLogout = async () => {
-    if (window.confirm('Beralih ke Mode Teman Kontrakan (Lihat Saja)?')) {
-      await api.logoutAdmin();
-      setIsAdmin(false);
-      setSecurityAlerts([]);
-      setLiveSecurityToast(null);
-    }
+    await api.logoutAdmin();
+    setIsAdmin(false);
+    setSecurityAlerts([]);
+    setLiveSecurityToast(null);
   };
 
   // Triggered when a non-admin clicks a modify button OR manually clicks Admin Login
@@ -326,10 +324,7 @@ export const App: React.FC = () => {
       }
       await api.updateExpense(id, expenseData);
     } else {
-      const res = await api.addExpense(expenseData);
-      if (res.pending_verification === 1) {
-        alert('✅ Pengeluaran berhasil dikirim! Menunggu verifikasi dari Vier (Admin).');
-      }
+      await api.addExpense(expenseData);
     }
     await loadData();
   };
@@ -558,6 +553,7 @@ export const App: React.FC = () => {
                 onRequestAdminLogin={handleRequestAdminLogin}
                 onOpenClaimModal={handleOpenClaimModal}
                 onOpenVerificationModal={() => setIsVerificationModalOpen(true)}
+                onOpenReportModal={() => setIsReportModalOpen(true)}
                 onQuickVerify={handleVerifySingle}
               />
             </div>
@@ -660,6 +656,8 @@ export const App: React.FC = () => {
           summary={summary}
           matrix={matrix}
           expenses={expenses}
+          onChangeMonth={handleChangeMonth}
+          onSelectMonth={(m) => setCurrentMonth(m)}
         />
       )}
 

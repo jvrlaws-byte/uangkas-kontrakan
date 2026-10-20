@@ -385,6 +385,24 @@ export const api = {
     return await res.json();
   },
 
+  // Yearly Monthly Recap (Januari - Desember)
+  async getYearlyReport(year: number): Promise<{
+    year: number;
+    months: Array<{
+      month: number;
+      income: number;
+      expense: number;
+      net: number;
+      runningBalance: number;
+      paidWeeks: number;
+      expenseCount: number;
+    }>;
+  }> {
+    const res = await fetchWithSync(`${API_BASE}/reports/yearly?year=${year}`);
+    if (!res.ok) throw new Error('Gagal memuat rekap tahunan');
+    return await res.json();
+  },
+
   // Realtime Sync Listener (SSE for local/persistent servers; disabled on Vercel Serverless to prevent reconnect loops)
   subscribeEvents(onDataChange: (event: any) => void): () => void {
     const isVercel = window.location.hostname.includes('vercel.app');
