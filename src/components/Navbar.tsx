@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-400 hidden sm:block truncate max-w-xs md:max-w-lg">
-                Bayu • Apip • Ian • Ray • Dola • James_Dely • <strong>Vier (Admin)</strong>
+                Bayu • Apip • Ian • Ray • Dola • James_Deli • <strong>Vier (Admin)</strong>
               </p>
             </div>
           </div>

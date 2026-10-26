@@ -22,7 +22,7 @@ export const MartabakTargetCard: React.FC<MartabakTargetCardProps> = ({
 
   // Trigger celebration confetti when target is reached
   useEffect(() => {
-    if (isReady && currentBalance >= 50000) {
+    if (isReady && currentBalance >= 100000) {
       try {
         confetti({
           particleCount: 80,
@@ -75,14 +75,14 @@ export const MartabakTargetCard: React.FC<MartabakTargetCardProps> = ({
                   </span>
                 ) : (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
-                    Target Rp 50rb
+                    Target Rp 100rb
                   </span>
                 )}
               </div>
               <h2 className="text-sm sm:text-lg font-extrabold text-white mt-0.5 truncate">
                 {isReady
                   ? 'Siap Beli Martabak! 🎉'
-                  : 'Kumpulkan Saldo Rp 50rb'}
+                  : 'Kumpulkan Saldo Rp 100rb'}
               </h2>
             </div>
           </div>
@@ -101,7 +101,7 @@ export const MartabakTargetCard: React.FC<MartabakTargetCardProps> = ({
                 </button>
               ) : (
                 <button
-                  onClick={() => onRequestAdminLogin('Mencoba eksekusi Beli Martabak Rp 50.000')}
+                  onClick={() => onRequestAdminLogin('Mencoba eksekusi Beli Martabak Rp 100.000')}
                   className="w-full sm:w-auto bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3.5 py-2 rounded-xl text-center transition active:scale-95"
                 >
                   <span className="text-xs font-bold text-amber-300 block">
@@ -132,7 +132,7 @@ export const MartabakTargetCard: React.FC<MartabakTargetCardProps> = ({
               <span className="font-extrabold text-white text-xs sm:text-sm">
                 Rp {currentBalance.toLocaleString('id-ID')}
               </span>
-              <span className="text-slate-500 text-[11px]">/ 50rb</span>
+              <span className="text-slate-500 text-[11px]">/ 100rb</span>
             </div>
 
             <div className="flex items-center space-x-2 shrink-0">

@@ -52,13 +52,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [isSuccessPending, setIsSuccessPending] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // Categories as specified: Isi Ulang Air (5.000), Sabun Cuci Piring (8.000), Tissue (10.000), Gas Masak (22.000), Martabak (50.000), Lain-lain
+  // Categories as specified: Isi Ulang Air (5.000), Sabun Cuci Piring (8.000), Tissue (10.000), Gas Masak (22.000), Martabak (100.000), Lain-lain
   const categories = [
     { name: 'Isi Ulang Air', defaultAmount: 5000, icon: '💧' },
     { name: 'Sabun Cuci Piring', defaultAmount: 8000, icon: '🧼' },
     { name: 'Tissue', defaultAmount: 10000, icon: '🧻' },
     { name: 'Gas Masak', defaultAmount: 22000, icon: '🍳' },
-    { name: 'Martabak Kontrakan', defaultAmount: 50000, icon: '🥞' },
+    { name: 'Martabak Kontrakan', defaultAmount: 100000, icon: '🥞' },
     { name: 'Lain-lain', defaultAmount: null, icon: '📦' },
   ];
 

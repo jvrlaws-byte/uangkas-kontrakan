@@ -161,7 +161,7 @@ export const MemberModal: React.FC<MemberModalProps> = ({
           </div>
 
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs text-slate-400">
-            Anggota bawaan kontrakan: <strong>Bayu, Apip, Ian, Ray, Dola, James_Dely, Vier (Admin)</strong>. Kamu bisa menambahkan anggota baru kapan saja jika ada teman baru yang masuk.
+            Anggota bawaan kontrakan: <strong>Bayu, Apip, Ian, Ray, Dola, James_Deli, Vier (Admin)</strong>. Kamu bisa menambahkan anggota baru kapan saja jika ada teman baru yang masuk.
           </div>
 
         </div>

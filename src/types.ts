@@ -109,12 +109,12 @@ export type UserRole = 'admin' | 'viewer';
 
 /**
  * Menentukan minggu aktif iuran untuk setiap anggota pada bulan & tahun tertentu.
- * Khusus James_Dely: pada bulan Oktober 2026 hanya ikut di M3 dan M4,
+ * Khusus James_Deli: pada bulan Oktober 2026 hanya ikut di M3 dan M4,
  * sedangkan untuk bulan-bulan kedepannya ikut full 4 minggu (M1 - M4) seperti anggota lainnya.
  */
 export const getActiveWeeksForMember = (memberName: string, year: number, month: number): number[] => {
   const normalized = (memberName || '').trim().toLowerCase();
-  if (normalized === 'james_dely' || normalized === 'james dely') {
+  if (normalized === 'james_deli' || normalized === 'james deli' || normalized === 'james_dely' || normalized === 'james dely') {
     if (year === 2026 && month === 10) {
       return [3, 4];
     }

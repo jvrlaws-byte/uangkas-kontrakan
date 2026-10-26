@@ -7,7 +7,7 @@ export const INITIAL_SNAPSHOT = {
     { id: 4, name: 'Ray', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 5, name: 'Dola', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 6, name: 'Vier', is_active: 1, created_at: '2026-10-14 12:22:36' },
-    { id: 7, name: 'James_Dely', is_active: 1, created_at: '2026-10-21 10:00:00' }
+    { id: 7, name: 'James_Deli', is_active: 1, created_at: '2026-10-21 10:00:00' }
   ],
   contributions: [
     {
@@ -303,7 +303,7 @@ export const INITIAL_SNAPSHOT = {
   ],
   settings: [
     { key: 'weekly_fee', value: '5000' },
-    { key: 'martabak_target', value: '50000' },
+    { key: 'martabak_target', value: '100000' },
     { key: 'admin_name', value: 'Vier' },
     { key: 'admin_pin', value: '101010' },
     { key: 'db_version', value: '1792224500000' }

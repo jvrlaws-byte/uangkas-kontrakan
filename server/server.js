@@ -240,10 +240,10 @@ const applySnapshotToDb = (snapshot) => {
 };
 
 // Helper: Active weeks for a member in a given year & month
-// James_Dely only participates in M3 & M4 in October 2026, and full M1-M4 in future months
+// James_Deli only participates in M3 & M4 in October 2026, and full M1-M4 in future months
 const getActiveWeeksForMember = (memberName, year, month) => {
   const normalized = String(memberName || '').trim().toLowerCase();
-  if (normalized === 'james_dely' || normalized === 'james dely') {
+  if (normalized === 'james_deli' || normalized === 'james deli' || normalized === 'james_dely' || normalized === 'james dely') {
     if (Number(year) === 2026 && Number(month) === 10) {
       return [3, 4];
     }
@@ -251,16 +251,22 @@ const getActiveWeeksForMember = (memberName, year, month) => {
   return [1, 2, 3, 4];
 };
 
-// Ensure James_Dely exists and his Oct 2026 M3 & M4 paid records are present (and M1 & M2 are clean)
+// Ensure James_Deli exists (renaming any legacy James_Dely) and his Oct 2026 M3 & M4 paid records are present
 const ensureJamesDelySeeded = () => {
   try {
-    let james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_dely'").get();
+    let changed = false;
+    // Automatically migrate any existing 'James_Dely' to 'James_Deli'
+    const renameRes = db.prepare("UPDATE members SET name = 'James_Deli' WHERE LOWER(name) = 'james_dely'").run();
+    if (renameRes.changes > 0) changed = true;
+
+    let james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_deli'").get();
     if (!james) {
-      db.prepare("INSERT INTO members (name, is_active, created_at) VALUES ('James_Dely', 1, '2026-10-21 10:00:00')").run();
-      james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_dely'").get();
+      db.prepare("INSERT INTO members (name, is_active, created_at) VALUES ('James_Deli', 1, '2026-10-21 10:00:00')").run();
+      james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_deli'").get();
+      changed = true;
     }
     if (james) {
-      // Remove any accidental M1 or M2 records in Oct 2026 for James_Dely
+      // Remove any accidental M1 or M2 records in Oct 2026 for James_Deli
       db.prepare('DELETE FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week IN (1, 2)').run(james.id);
 
       // Seed M3 & M4 in Oct 2026 as paid if not yet present
@@ -279,13 +285,23 @@ const ensureJamesDelySeeded = () => {
         upsertPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
       }
     }
+    // Ensure martabak_target is 100000 (100K)
+    const curTarget = getSetting('martabak_target', null);
+    if (!curTarget || curTarget === '50000') {
+      setSetting('martabak_target', '100000');
+      changed = true;
+    }
+    if (changed) {
+      const nextVer = Math.max(Date.now(), Number(getSetting('db_version', 0)) + 1);
+      setSetting('db_version', String(nextVer));
+    }
   } catch (err) {
-    console.error('Failed to ensure James_Dely seeded:', err);
+    console.error('Failed to ensure James_Deli seeded:', err);
   }
 };
 
-// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin), James_Dely
-const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Dely'];
+// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin), James_Deli
+const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Deli'];
 const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
 let currentDbVersion = Number(getSetting('db_version', 0));
 // Reset bogus future seed version (1793050000000) so user's real 3-week history snapshot is accepted
@@ -303,8 +319,8 @@ ensureJamesDelySeeded();
 if (!getSetting('weekly_fee', null)) {
   setSetting('weekly_fee', '5000');
 }
-if (!getSetting('martabak_target', null)) {
-  setSetting('martabak_target', '50000');
+if (!getSetting('martabak_target', null) || getSetting('martabak_target', null) === '50000') {
+  setSetting('martabak_target', '100000');
 }
 const currentSavedPin = getSetting('admin_pin', null);
 if (!currentSavedPin || currentSavedPin === '1234' || currentSavedPin === '151515') {
@@ -373,7 +389,7 @@ app.get('/api/info', (req, res) => {
     connectedClients: sseClients.length,
     defaultMembers,
     weeklyFee: Number(getSetting('weekly_fee', 5000)),
-    martabakTarget: Number(getSetting('martabak_target', 50000)),
+    martabakTarget: Number(getSetting('martabak_target', 100000)),
     adminName: getSetting('admin_name', 'Vier'),
   });
 });
@@ -515,7 +531,7 @@ const syncIncomingSnapshot = (tokenStr) => {
     const localVer = rawLocalVer >= 1793050000000 ? INITIAL_SNAPSHOT.version : rawLocalVer;
 
     // Count non-James paid contributions + expenses to ensure user's 3-week history always wins over seed
-    const jamesMember = (parsed.members || []).find((m) => String(m.name || '').toLowerCase() === 'james_dely');
+    const jamesMember = (parsed.members || []).find((m) => ['james_deli', 'james_dely'].includes(String(m.name || '').toLowerCase()));
     const jamesId = jamesMember ? Number(jamesMember.id) : 7;
     const incomingPaidCount = (parsed.contributions || []).filter(
       (c) => Number(c.is_paid) === 1 && Number(c.member_id) !== jamesId
@@ -523,7 +539,7 @@ const syncIncomingSnapshot = (tokenStr) => {
     const incomingExpCount = (parsed.expenses || []).length;
     const incomingRichness = incomingPaidCount * 10 + incomingExpCount;
 
-    const localJames = db.prepare("SELECT id FROM members WHERE LOWER(name) = 'james_dely'").get();
+    const localJames = db.prepare("SELECT id FROM members WHERE LOWER(name) IN ('james_deli', 'james_dely')").get();
     const localJamesId = localJames ? Number(localJames.id) : 7;
     const localPaidCount = db.prepare(
       'SELECT COUNT(*) as cnt FROM contributions WHERE is_paid = 1 AND member_id != ?'
@@ -1167,7 +1183,7 @@ app.get('/api/summary', (req, res) => {
   );
   const expectedMonthlyTotal = totalExpectedWeeks * weeklyFee;
 
-  const martabakTarget = Number(getSetting('martabak_target', 50000));
+  const martabakTarget = Number(getSetting('martabak_target', 100000));
   const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
   const martabakReady = currentBalance >= martabakTarget;
   const martabakPortions = Math.max(0, Math.floor(currentBalance / martabakTarget));
@@ -1357,7 +1373,7 @@ app.get('/api/state', (req, res) => {
     0
   );
   const expectedMonthlyTotal = totalExpectedWeeks * weeklyFee;
-  const martabakTarget = Number(getSetting('martabak_target', 50000));
+  const martabakTarget = Number(getSetting('martabak_target', 100000));
   const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
   const martabakReady = currentBalance >= martabakTarget;
   const martabakPortions = Math.max(0, Math.floor(currentBalance / martabakTarget));

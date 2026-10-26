@@ -20,7 +20,7 @@ const getSnapshotRichness = (snapToken: string): { version: number; richness: nu
       return { version: 0, richness: 0, hasJames: false };
     }
     const members = Array.isArray(parsed?.members) ? parsed.members : [];
-    const james = members.find((m: any) => String(m?.name || '').toLowerCase() === 'james_dely');
+    const james = members.find((m: any) => ['james_deli', 'james_dely'].includes(String(m?.name || '').toLowerCase()));
     const jamesId = james ? Number(james.id) : 7;
     const paidNonJames = (Array.isArray(parsed?.contributions) ? parsed.contributions : []).filter(
       (c: any) => Number(c?.is_paid) === 1 && Number(c?.member_id) !== jamesId
@@ -123,9 +123,9 @@ export const api = {
         laptopUrl: window.location.origin,
         mobileUrl: window.location.origin,
         connectedClients: 1,
-        defaultMembers: ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Dely'],
+        defaultMembers: ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Deli'],
         weeklyFee: 5000,
-        martabakTarget: 50000,
+        martabakTarget: 100000,
         adminName: 'Vier',
       };
     }
