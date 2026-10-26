@@ -10,6 +10,7 @@ import {
   Clock, 
   Send, 
   ShieldCheck, 
+  X,
   XCircle,
   AlertCircle,
   FileSpreadsheet
@@ -339,9 +340,11 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                         key={w}
                         onClick={() => handleCellClick(member.id, w, isPaid, isPending, contrib?.id || `${member.id}_${year}_${month}_${w}`, member.name)}
                         disabled={isLoading}
-                        className={`h-12 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center space-y-0.5 active:scale-90 ${
+                        className={`group h-12 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center space-y-0.5 active:scale-90 ${
                           isPaid
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                            ? isAdmin
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/50 shadow-sm shadow-emerald-500/10'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/10'
                             : isPending
                               ? 'bg-amber-500/25 text-amber-300 border border-amber-500/60 shadow-md shadow-amber-500/20 animate-pulse'
                               : isAdmin
@@ -362,7 +365,14 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                       >
                         <span className="text-xs font-extrabold opacity-90">M{w}</span>
                         {isPaid ? (
-                          <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                          isAdmin ? (
+                            <>
+                              <Check className="w-4 h-4 text-emerald-400 stroke-[3] group-hover:hidden" />
+                              <X className="w-4 h-4 text-rose-400 stroke-[3] hidden group-hover:inline-block" />
+                            </>
+                          ) : (
+                            <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                          )
                         ) : isPending ? (
                           <span className="text-[9px] text-amber-300 font-extrabold uppercase flex items-center">
                             <Clock className="w-2.5 h-2.5 mr-0.5" />
@@ -514,8 +524,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                               <>
                                 <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3] group-hover:hidden" />
                                 <span className="group-hover:hidden">Rp 5.000</span>
-                                <XCircle className="w-3.5 h-3.5 text-rose-400 hidden group-hover:inline-block" />
-                                <span className="hidden group-hover:inline text-rose-300 font-bold">Batal Bayar</span>
+                                <X className="w-4 h-4 text-rose-400 stroke-[3] hidden group-hover:inline-block" />
                               </>
                             ) : (
                               <>
