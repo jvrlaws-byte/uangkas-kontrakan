@@ -1,7 +1,40 @@
 import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem } from '../types';
 
 const API_BASE = '/api';
-const SNAPSHOT_STORAGE_KEY = 'uangkas_signed_snapshot_v3';
+const SNAPSHOT_STORAGE_KEY = 'uangkas_signed_snapshot';
+
+// Clean up temporary v3 key so browser uses the real 3-week history in 'uangkas_signed_snapshot'
+try {
+  localStorage.removeItem('uangkas_signed_snapshot_v3');
+} catch {
+  // Ignore storage errors
+}
+
+const getSnapshotRichness = (snapToken: string): { version: number; richness: number; hasJames: boolean } => {
+  try {
+    const [b64] = snapToken.split('.');
+    if (!b64) return { version: 0, richness: 0, hasJames: false };
+    const parsed = JSON.parse(atob(b64));
+    const version = Number(parsed?.version || 0);
+    if (version >= 1793050000000) {
+      return { version: 0, richness: 0, hasJames: false };
+    }
+    const members = Array.isArray(parsed?.members) ? parsed.members : [];
+    const james = members.find((m: any) => String(m?.name || '').toLowerCase() === 'james_dely');
+    const jamesId = james ? Number(james.id) : 7;
+    const paidNonJames = (Array.isArray(parsed?.contributions) ? parsed.contributions : []).filter(
+      (c: any) => Number(c?.is_paid) === 1 && Number(c?.member_id) !== jamesId
+    ).length;
+    const expCount = Array.isArray(parsed?.expenses) ? parsed.expenses.length : 0;
+    return {
+      version,
+      richness: paidNonJames * 10 + expCount,
+      hasJames: Boolean(james),
+    };
+  } catch {
+    return { version: 0, richness: 0, hasJames: false };
+  }
+};
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('uangkas_admin_token') || '';
@@ -35,7 +68,17 @@ const fetchWithSync = async (url: string, options: RequestInit = {}): Promise<Re
   const newSnapshot = res.headers.get('x-uangkas-snapshot');
   if (newSnapshot) {
     try {
-      localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+      const currentSnap = localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '';
+      if (!currentSnap) {
+        localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+      } else {
+        const curMeta = getSnapshotRichness(currentSnap);
+        const newMeta = getSnapshotRichness(newSnapshot);
+        // Only overwrite if newSnapshot is not a downgraded seed and has absorbed user history
+        if (newMeta.version > 0 && (newMeta.richness >= curMeta.richness || options.method === 'DELETE')) {
+          localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+        }
+      }
     } catch {
       // Ignore storage quota errors
     }

@@ -1,5 +1,5 @@
 export const INITIAL_SNAPSHOT = {
-  version: 1793050000000,
+  version: 1792224500000,
   members: [
     { id: 1, name: 'Bayu', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 2, name: 'Apip', is_active: 1, created_at: '2026-10-14 12:22:36' },
@@ -306,6 +306,6 @@ export const INITIAL_SNAPSHOT = {
     { key: 'martabak_target', value: '50000' },
     { key: 'admin_name', value: 'Vier' },
     { key: 'admin_pin', value: '101010' },
-    { key: 'db_version', value: '1793050000000' }
+    { key: 'db_version', value: '1792224500000' }
   ]
 };

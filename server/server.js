@@ -264,17 +264,19 @@ const ensureJamesDelySeeded = () => {
       db.prepare('DELETE FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week IN (1, 2)').run(james.id);
 
       // Seed M3 & M4 in Oct 2026 as paid if not yet present
-      const checkWeek = db.prepare('SELECT id FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week = ?');
-      const insPaid = db.prepare(`
+      const upsertPaid = db.prepare(`
         INSERT INTO contributions (
           id, member_id, year, month, week, amount, is_paid, paid_at, notes,
           pending_verification, status, payer_note, claimed_at, verified_at
         ) VALUES (?, ?, 2026, 10, ?, 5000, 1, '2026-10-21T10:00:00.000Z', 'Mulai ikut di M3 & M4', 0, 'verified', 'Cash', NULL, '2026-10-21T10:00:00.000Z')
+        ON CONFLICT(id) DO UPDATE SET
+          amount = 5000,
+          is_paid = 1,
+          pending_verification = 0,
+          status = 'verified'
       `);
       for (const w of [3, 4]) {
-        if (!checkWeek.get(james.id, w)) {
-          insPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
-        }
+        upsertPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
       }
     }
   } catch (err) {
@@ -285,7 +287,12 @@ const ensureJamesDelySeeded = () => {
 // Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin), James_Dely
 const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Dely'];
 const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
-const currentDbVersion = Number(getSetting('db_version', 0));
+let currentDbVersion = Number(getSetting('db_version', 0));
+// Reset bogus future seed version (1793050000000) so user's real 3-week history snapshot is accepted
+if (currentDbVersion >= 1793050000000) {
+  currentDbVersion = INITIAL_SNAPSHOT.version;
+  setSetting('db_version', String(INITIAL_SNAPSHOT.version));
+}
 
 if (countMembers === 0 || currentDbVersion < INITIAL_SNAPSHOT.version) {
   applySnapshotToDb(INITIAL_SNAPSHOT);
@@ -485,7 +492,7 @@ const exportSignedSnapshot = () => {
   }
 };
 
-// Verify & Restore Incoming Signed Snapshot if Newer than Local Serverless Container
+// Verify & Restore Incoming Signed Snapshot if Newer or Richer than Local Serverless Container
 const syncIncomingSnapshot = (tokenStr) => {
   if (!tokenStr || typeof tokenStr !== 'string' || !tokenStr.includes('.')) return;
   try {
@@ -499,10 +506,36 @@ const syncIncomingSnapshot = (tokenStr) => {
     }
     const parsed = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
     const incomingVer = Number(parsed?.version || 0);
-    const localVer = Number(getSetting('db_version', 0));
-    if (incomingVer > localVer) {
+    // Ignore bogus future seed version (1793050000000)
+    if (incomingVer >= 1793050000000) {
+      return;
+    }
+
+    const rawLocalVer = Number(getSetting('db_version', 0));
+    const localVer = rawLocalVer >= 1793050000000 ? INITIAL_SNAPSHOT.version : rawLocalVer;
+
+    // Count non-James paid contributions + expenses to ensure user's 3-week history always wins over seed
+    const jamesMember = (parsed.members || []).find((m) => String(m.name || '').toLowerCase() === 'james_dely');
+    const jamesId = jamesMember ? Number(jamesMember.id) : 7;
+    const incomingPaidCount = (parsed.contributions || []).filter(
+      (c) => Number(c.is_paid) === 1 && Number(c.member_id) !== jamesId
+    ).length;
+    const incomingExpCount = (parsed.expenses || []).length;
+    const incomingRichness = incomingPaidCount * 10 + incomingExpCount;
+
+    const localJames = db.prepare("SELECT id FROM members WHERE LOWER(name) = 'james_dely'").get();
+    const localJamesId = localJames ? Number(localJames.id) : 7;
+    const localPaidCount = db.prepare(
+      'SELECT COUNT(*) as cnt FROM contributions WHERE is_paid = 1 AND member_id != ?'
+    ).get(localJamesId).cnt;
+    const localExpCount = db.prepare('SELECT COUNT(*) as cnt FROM expenses').get().cnt;
+    const localRichness = Number(localPaidCount) * 10 + Number(localExpCount);
+
+    if (incomingVer > localVer || incomingRichness > localRichness) {
       applySnapshotToDb(parsed);
       ensureJamesDelySeeded();
+      const mergedVer = Math.max(incomingVer, localVer, Date.now());
+      setSetting('db_version', String(mergedVer));
     }
   } catch (err) {
     // Ignore malformed header
@@ -513,10 +546,16 @@ const syncIncomingSnapshot = (tokenStr) => {
 app.use('/api', (req, res, next) => {
   if (req.path === '/events') return next();
 
+  const rawDbVer = Number(getSetting('db_version', 0));
+  if (rawDbVer >= 1793050000000) {
+    setSetting('db_version', String(INITIAL_SNAPSHOT.version));
+  }
+
   const clientSnap = req.headers['x-uangkas-snapshot'];
   if (clientSnap) {
     syncIncomingSnapshot(String(clientSnap));
   }
+  ensureJamesDelySeeded();
 
   const origJson = res.json.bind(res);
   res.json = (body) => {
