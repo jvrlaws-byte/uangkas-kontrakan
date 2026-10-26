@@ -239,8 +239,51 @@ const applySnapshotToDb = (snapshot) => {
   }
 };
 
-// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin)
-const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier'];
+// Helper: Active weeks for a member in a given year & month
+// James_Dely only participates in M3 & M4 in October 2026, and full M1-M4 in future months
+const getActiveWeeksForMember = (memberName, year, month) => {
+  const normalized = String(memberName || '').trim().toLowerCase();
+  if (normalized === 'james_dely' || normalized === 'james dely') {
+    if (Number(year) === 2026 && Number(month) === 10) {
+      return [3, 4];
+    }
+  }
+  return [1, 2, 3, 4];
+};
+
+// Ensure James_Dely exists and his Oct 2026 M3 & M4 paid records are present (and M1 & M2 are clean)
+const ensureJamesDelySeeded = () => {
+  try {
+    let james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_dely'").get();
+    if (!james) {
+      db.prepare("INSERT INTO members (name, is_active, created_at) VALUES ('James_Dely', 1, '2026-10-21 10:00:00')").run();
+      james = db.prepare("SELECT * FROM members WHERE LOWER(name) = 'james_dely'").get();
+    }
+    if (james) {
+      // Remove any accidental M1 or M2 records in Oct 2026 for James_Dely
+      db.prepare('DELETE FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week IN (1, 2)').run(james.id);
+
+      // Seed M3 & M4 in Oct 2026 as paid if not yet present
+      const checkWeek = db.prepare('SELECT id FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week = ?');
+      const insPaid = db.prepare(`
+        INSERT INTO contributions (
+          id, member_id, year, month, week, amount, is_paid, paid_at, notes,
+          pending_verification, status, payer_note, claimed_at, verified_at
+        ) VALUES (?, ?, 2026, 10, ?, 5000, 1, '2026-10-21T10:00:00.000Z', 'Mulai ikut di M3 & M4', 0, 'verified', 'Cash', NULL, '2026-10-21T10:00:00.000Z')
+      `);
+      for (const w of [3, 4]) {
+        if (!checkWeek.get(james.id, w)) {
+          insPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to ensure James_Dely seeded:', err);
+  }
+};
+
+// Seed default members: Bayu, Apip, Ian, Ray, Dola, Vier (Admin), James_Dely
+const defaultMembers = ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Dely'];
 const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get().count;
 const currentDbVersion = Number(getSetting('db_version', 0));
 
@@ -248,6 +291,7 @@ if (countMembers === 0 || currentDbVersion < INITIAL_SNAPSHOT.version) {
   applySnapshotToDb(INITIAL_SNAPSHOT);
   console.log('✅ Database diinisialisasi dengan data asli Kas Kontrakan Cikarang Lembah Hijau!');
 }
+ensureJamesDelySeeded();
 
 if (!getSetting('weekly_fee', null)) {
   setSetting('weekly_fee', '5000');
@@ -458,6 +502,7 @@ const syncIncomingSnapshot = (tokenStr) => {
     const localVer = Number(getSetting('db_version', 0));
     if (incomingVer > localVer) {
       applySnapshotToDb(parsed);
+      ensureJamesDelySeeded();
     }
   } catch (err) {
     // Ignore malformed header
@@ -476,7 +521,8 @@ app.use('/api', (req, res, next) => {
   const origJson = res.json.bind(res);
   res.json = (body) => {
     if (req.method !== 'GET' && res.statusCode >= 200 && res.statusCode < 300) {
-      setSetting('db_version', String(Date.now()));
+      const nextVer = Math.max(Date.now(), Number(getSetting('db_version', 0)) + 1);
+      setSetting('db_version', String(nextVer));
     }
     const latestSnap = exportSignedSnapshot();
     if (latestSnap) {
@@ -647,10 +693,31 @@ app.get('/api/contributions', (req, res) => {
   const members = db.prepare('SELECT * FROM members WHERE is_active = 1 ORDER BY id ASC').all();
   const contributions = db.prepare('SELECT * FROM contributions WHERE year = ? AND month = ?').all(year, month);
 
-  // Group by member_id and week (Strictly 4 weeks per month)
+  // Group by member_id and week (Strictly 4 weeks per month, respecting member active weeks)
   const matrix = members.map((m) => {
     const memberContribs = {};
+    const activeWeeks = getActiveWeeksForMember(m.name, year, month);
     for (let w = 1; w <= 4; w++) {
+      if (!activeWeeks.includes(w)) {
+        memberContribs[w] = {
+          id: `${m.id}_${year}_${month}_${w}`,
+          member_id: m.id,
+          year,
+          month,
+          week: w,
+          amount: 0,
+          is_paid: 0,
+          paid_at: null,
+          notes: 'Belum bergabung',
+          pending_verification: 0,
+          status: 'not_joined',
+          is_exempt: 1,
+          payer_note: '',
+          claimed_at: null,
+          verified_at: null
+        };
+        continue;
+      }
       const match = contributions.find((c) => c.member_id === m.id && c.week === w);
       memberContribs[w] = match || {
         id: `${m.id}_${year}_${month}_${w}`,
@@ -694,19 +761,20 @@ app.post('/api/contributions/claim', (req, res) => {
   }
 
   // Validate member existence
-  const memberExists = db.prepare('SELECT id FROM members WHERE id = ? AND is_active = 1').get(numMemberId);
+  const memberExists = db.prepare('SELECT id, name FROM members WHERE id = ? AND is_active = 1').get(numMemberId);
   if (!memberExists) {
     return res.status(404).json({ error: 'Anggota kontrakan tidak valid' });
   }
 
   const amount = Number(getSetting('weekly_fee', 5000));
   const claimed_at = new Date().toISOString();
+  const activeWeeks = getActiveWeeksForMember(memberExists.name, numYear, numMonth);
 
-  // Strictly enforce valid weeks [1, 2, 3, 4]
-  const rawWeeks = weeks && Array.isArray(weeks) && weeks.length > 0 ? weeks : (week ? [Number(week)] : [1, 2, 3, 4]);
-  const weeksToClaim = rawWeeks.map(Number).filter(w => [1, 2, 3, 4].includes(w));
+  // Strictly enforce valid active weeks for this member
+  const rawWeeks = weeks && Array.isArray(weeks) && weeks.length > 0 ? weeks : (week ? [Number(week)] : activeWeeks);
+  const weeksToClaim = rawWeeks.map(Number).filter(w => activeWeeks.includes(w));
   if (weeksToClaim.length === 0) {
-    return res.status(400).json({ error: 'Minggu yang dipilih tidak valid' });
+    return res.status(400).json({ error: 'Minggu yang dipilih tidak aktif untuk anggota ini' });
   }
 
   // Sanitize payer note (strip dangerous characters, max 100 chars)
@@ -817,6 +885,13 @@ app.get('/api/contributions/pending', (req, res) => {
 // API: Toggle Contribution payment (Admin only)
 app.post('/api/contributions/toggle', requireAdmin, (req, res) => {
   const { member_id, year, month, week, is_paid, notes } = req.body;
+  const memberRow = db.prepare('SELECT id, name FROM members WHERE id = ?').get(Number(member_id));
+  if (memberRow) {
+    const activeWeeks = getActiveWeeksForMember(memberRow.name, Number(year), Number(month));
+    if (!activeWeeks.includes(Number(week))) {
+      return res.status(400).json({ error: `${memberRow.name} baru bergabung di minggu M3 & M4 pada bulan ini` });
+    }
+  }
   const id = `${member_id}_${year}_${month}_${week}`;
   const amount = Number(getSetting('weekly_fee', 5000));
   const now = new Date().toISOString();
@@ -845,6 +920,8 @@ app.post('/api/contributions/batch-pay', requireAdmin, (req, res) => {
   const { member_id, year, month, weeksToPay } = req.body;
   const amount = Number(getSetting('weekly_fee', 5000));
   const now = new Date().toISOString();
+  const memberRow = db.prepare('SELECT id, name FROM members WHERE id = ?').get(Number(member_id));
+  const activeWeeks = memberRow ? getActiveWeeksForMember(memberRow.name, Number(year), Number(month)) : [1, 2, 3, 4];
 
   const insertOrUpdate = db.prepare(`
     INSERT INTO contributions (id, member_id, year, month, week, amount, is_paid, paid_at, notes, pending_verification, status, verified_at)
@@ -858,7 +935,7 @@ app.post('/api/contributions/batch-pay', requireAdmin, (req, res) => {
       verified_at = excluded.verified_at
   `);
 
-  const weeks = weeksToPay || [1, 2, 3, 4];
+  const weeks = (weeksToPay || activeWeeks).filter((w) => activeWeeks.includes(Number(w)));
   for (const w of weeks) {
     const id = `${member_id}_${year}_${month}_${w}`;
     insertOrUpdate.run(id, member_id, year, month, w, amount, now, now);
@@ -1041,10 +1118,15 @@ app.get('/api/summary', (req, res) => {
   const allTimeExpense = allExpenseRow ? allExpenseRow.total : 0;
   const currentBalance = allTimeIncome - allTimeExpense;
 
-  // Calculate unpaid contributions for this month
-  const activeMembersCount = db.prepare('SELECT COUNT(*) as count FROM members WHERE is_active = 1').get().count;
+  // Calculate unpaid contributions for this month (accounting for each member's active weeks)
+  const activeMembersList = db.prepare('SELECT id, name FROM members WHERE is_active = 1').all();
+  const activeMembersCount = activeMembersList.length;
   const weeklyFee = Number(getSetting('weekly_fee', 5000));
-  const expectedMonthlyTotal = activeMembersCount * 4 * weeklyFee;
+  const totalExpectedWeeks = activeMembersList.reduce(
+    (sum, m) => sum + getActiveWeeksForMember(m.name, year, month).length,
+    0
+  );
+  const expectedMonthlyTotal = totalExpectedWeeks * weeklyFee;
 
   const martabakTarget = Number(getSetting('martabak_target', 50000));
   const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
@@ -1145,7 +1227,28 @@ app.get('/api/state', (req, res) => {
 
   const matrix = activeMembers.map((m) => {
     const memberContribs = {};
+    const activeWeeks = getActiveWeeksForMember(m.name, year, month);
     for (let w = 1; w <= 4; w++) {
+      if (!activeWeeks.includes(w)) {
+        memberContribs[w] = {
+          id: `${m.id}_${year}_${month}_${w}`,
+          member_id: m.id,
+          year,
+          month,
+          week: w,
+          amount: 0,
+          is_paid: 0,
+          paid_at: null,
+          notes: 'Belum bergabung',
+          pending_verification: 0,
+          status: 'not_joined',
+          is_exempt: 1,
+          payer_note: '',
+          claimed_at: null,
+          verified_at: null
+        };
+        continue;
+      }
       const match = contributions.find((c) => c.member_id === m.id && c.week === w);
       memberContribs[w] = match || {
         id: `${m.id}_${year}_${month}_${w}`,
@@ -1210,7 +1313,11 @@ app.get('/api/state', (req, res) => {
   const allTimeExpense = allExpenseRow ? allExpenseRow.total : 0;
   const currentBalance = allTimeIncome - allTimeExpense;
 
-  const expectedMonthlyTotal = activeMembers.length * 4 * weeklyFee;
+  const totalExpectedWeeks = activeMembers.reduce(
+    (sum, m) => sum + getActiveWeeksForMember(m.name, year, month).length,
+    0
+  );
+  const expectedMonthlyTotal = totalExpectedWeeks * weeklyFee;
   const martabakTarget = Number(getSetting('martabak_target', 50000));
   const martabakProgress = Math.min(Math.round((currentBalance / martabakTarget) * 100), 100);
   const martabakReady = currentBalance >= martabakTarget;

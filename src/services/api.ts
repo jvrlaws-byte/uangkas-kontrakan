@@ -1,7 +1,7 @@
 import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem } from '../types';
 
 const API_BASE = '/api';
-const SNAPSHOT_STORAGE_KEY = 'uangkas_signed_snapshot';
+const SNAPSHOT_STORAGE_KEY = 'uangkas_signed_snapshot_v3';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('uangkas_admin_token') || '';
@@ -80,7 +80,7 @@ export const api = {
         laptopUrl: window.location.origin,
         mobileUrl: window.location.origin,
         connectedClients: 1,
-        defaultMembers: ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier'],
+        defaultMembers: ['Bayu', 'Apip', 'Ian', 'Ray', 'Dola', 'Vier', 'James_Dely'],
         weeklyFee: 5000,
         martabakTarget: 50000,
         adminName: 'Vier',

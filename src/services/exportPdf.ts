@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { MemberWeeklyRow, Expense, SummaryData } from '../types';
+import { MemberWeeklyRow, Expense, SummaryData, getActiveWeeksForMember } from '../types';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -100,17 +100,30 @@ export const exportToPdf = (
   doc.text('1. IURAN KAS', 14, 65);
 
   const memberTableRows = matrix.map((row, idx) => {
+    const activeWeeks = getActiveWeeksForMember(row.member.name, year, month);
+    const targetAmount = activeWeeks.length * 5000;
     let total = 0;
-    const w1 = row.weeks[1]?.is_paid ? 'Lunas' : 'Belum';
-    const w2 = row.weeks[2]?.is_paid ? 'Lunas' : 'Belum';
-    const w3 = row.weeks[3]?.is_paid ? 'Lunas' : 'Belum';
-    const w4 = row.weeks[4]?.is_paid ? 'Lunas' : 'Belum';
 
-    [1, 2, 3, 4].forEach((w) => {
+    const weekLabel = (w: number) => {
+      if (!activeWeeks.includes(w) || row.weeks[w]?.status === 'not_joined') return '-';
+      return row.weeks[w]?.is_paid ? 'Lunas' : 'Belum';
+    };
+
+    const w1 = weekLabel(1);
+    const w2 = weekLabel(2);
+    const w3 = weekLabel(3);
+    const w4 = weekLabel(4);
+
+    activeWeeks.forEach((w) => {
       if (row.weeks[w]?.is_paid) total += row.weeks[w]?.amount || 5000;
     });
 
-    const status = total >= 20000 ? 'LUNAS' : `Kurang ${formatRp(20000 - total)}`;
+    const status =
+      total >= targetAmount
+        ? activeWeeks.length < 4
+          ? 'LUNAS (M3-M4)'
+          : 'LUNAS'
+        : `Kurang ${formatRp(targetAmount - total)}`;
 
     return [
       idx + 1,
@@ -204,7 +217,7 @@ export const exportToPdf = (
   const pageHeight = doc.internal.pageSize.height;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'italic');
-  doc.text('Uang Kas Kontrakan (Isi Ulang Air Rp 5rb, Sabun Cuci Piring, Tissue, Gas Masak) | Bayu, Apip, Ian, Ray, Dola, Vier', 14, pageHeight - 10);
+  doc.text('Uang Kas Kontrakan (Isi Ulang Air Rp 5rb, Sabun Cuci Piring, Tissue, Gas Masak) | Bayu, Apip, Ian, Ray, Dola, James_Dely, Vier', 14, pageHeight - 10);
   doc.text('Target Martabak: Saldo menganggur Rp 50.000', 196, pageHeight - 10, { align: 'right' });
 
   // Save PDF

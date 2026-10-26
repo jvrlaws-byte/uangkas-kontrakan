@@ -16,7 +16,8 @@ export interface Contribution {
   paid_at: string | null;
   notes?: string;
   pending_verification?: number; // 0 or 1
-  status?: 'unpaid' | 'pending' | 'verified';
+  status?: 'unpaid' | 'pending' | 'verified' | 'not_joined';
+  is_exempt?: number;
   payer_note?: string;
   claimed_at?: string | null;
   verified_at?: string | null;
@@ -105,3 +106,18 @@ export interface SystemInfo {
 }
 
 export type UserRole = 'admin' | 'viewer';
+
+/**
+ * Menentukan minggu aktif iuran untuk setiap anggota pada bulan & tahun tertentu.
+ * Khusus James_Dely: pada bulan Oktober 2026 hanya ikut di M3 dan M4,
+ * sedangkan untuk bulan-bulan kedepannya ikut full 4 minggu (M1 - M4) seperti anggota lainnya.
+ */
+export const getActiveWeeksForMember = (memberName: string, year: number, month: number): number[] => {
+  const normalized = (memberName || '').trim().toLowerCase();
+  if (normalized === 'james_dely' || normalized === 'james dely') {
+    if (year === 2026 && month === 10) {
+      return [3, 4];
+    }
+  }
+  return [1, 2, 3, 4];
+};

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Tag, User, FileText, Check, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { Expense, Member } from '../types';
+import { CustomDropdown } from './CustomDropdown';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -330,17 +331,16 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Pilih Hari (Tanggal Ikut Otomatis) *
                 </label>
-                <select
+                <CustomDropdown
+                  size="md"
                   value={dayName}
-                  onChange={(e) => handleDayNameChange(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
-                >
-                  {ORDERED_DAYS.map((d) => (
-                    <option key={d} value={d}>
-                      Hari {d}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleDayNameChange(val)}
+                  options={ORDERED_DAYS.map((d) => ({
+                    value: d,
+                    label: `Hari ${d}`,
+                  }))}
+                  buttonClassName="text-emerald-400 font-bold"
+                />
               </div>
 
               <div>
@@ -383,16 +383,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Minggu Ke-
                 </label>
-                <select
+                <CustomDropdown
+                  size="md"
                   value={week}
-                  onChange={(e) => setWeek(Number(e.target.value))}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value={1}>M1</option>
-                  <option value={2}>M2</option>
-                  <option value={3}>M3</option>
-                  <option value={4}>M4</option>
-                </select>
+                  onChange={(val) => setWeek(Number(val))}
+                  options={[
+                    { value: 1, label: 'Minggu 1 (M1)', badge: 'M1' },
+                    { value: 2, label: 'Minggu 2 (M2)', badge: 'M2' },
+                    { value: 3, label: 'Minggu 3 (M3)', badge: 'M3' },
+                    { value: 4, label: 'Minggu 4 (M4)', badge: 'M4' },
+                  ]}
+                />
               </div>
             </div>
 

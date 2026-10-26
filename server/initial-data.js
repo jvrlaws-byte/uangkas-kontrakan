@@ -1,12 +1,13 @@
 export const INITIAL_SNAPSHOT = {
-  version: 1792224500000,
+  version: 1793050000000,
   members: [
     { id: 1, name: 'Bayu', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 2, name: 'Apip', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 3, name: 'Ian', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 4, name: 'Ray', is_active: 1, created_at: '2026-10-14 12:22:36' },
     { id: 5, name: 'Dola', is_active: 1, created_at: '2026-10-14 12:22:36' },
-    { id: 6, name: 'Vier', is_active: 1, created_at: '2026-10-14 12:22:36' }
+    { id: 6, name: 'Vier', is_active: 1, created_at: '2026-10-14 12:22:36' },
+    { id: 7, name: 'James_Dely', is_active: 1, created_at: '2026-10-21 10:00:00' }
   ],
   contributions: [
     {
@@ -216,6 +217,38 @@ export const INITIAL_SNAPSHOT = {
       payer_note: null,
       claimed_at: null,
       verified_at: '2026-10-15T01:49:27.139Z'
+    },
+    {
+      id: '7_2026_10_3',
+      member_id: 7,
+      year: 2026,
+      month: 10,
+      week: 3,
+      amount: 5000,
+      is_paid: 1,
+      paid_at: '2026-10-21T10:00:00.000Z',
+      notes: 'Mulai ikut di M3 & M4',
+      pending_verification: 0,
+      status: 'verified',
+      payer_note: 'Cash',
+      claimed_at: null,
+      verified_at: '2026-10-21T10:00:00.000Z'
+    },
+    {
+      id: '7_2026_10_4',
+      member_id: 7,
+      year: 2026,
+      month: 10,
+      week: 4,
+      amount: 5000,
+      is_paid: 1,
+      paid_at: '2026-10-21T10:00:00.000Z',
+      notes: 'Mulai ikut di M3 & M4',
+      pending_verification: 0,
+      status: 'verified',
+      payer_note: 'Cash',
+      claimed_at: null,
+      verified_at: '2026-10-21T10:00:00.000Z'
     }
   ],
   expenses: [
@@ -273,6 +306,6 @@ export const INITIAL_SNAPSHOT = {
     { key: 'martabak_target', value: '50000' },
     { key: 'admin_name', value: 'Vier' },
     { key: 'admin_pin', value: '101010' },
-    { key: 'db_version', value: '1792224500000' }
+    { key: 'db_version', value: '1793050000000' }
   ]
 };

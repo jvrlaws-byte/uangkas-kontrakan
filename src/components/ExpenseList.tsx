@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Receipt, 
   Plus, 
@@ -13,9 +13,16 @@ import {
   Layers, 
   Clock,
   Check,
-  X 
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Tag
 } from 'lucide-react';
 import { Expense } from '../types';
+import { CustomDropdown } from './CustomDropdown';
+
+const ITEMS_PER_PAGE = 7;
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -40,21 +47,46 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [filterWeek, setFilterWeek] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ exp: Expense; mode: 'delete' | 'reject' } | null>(null);
 
-  // Indonesian day helper (no "Semua")
-  const days = ['Hari', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
 
-  // Categories specific to this kontrakan (no "Semua")
-  const categoriesList = [
-    'Kategori',
-    'Isi Ulang Air',
-    'Sabun Cuci Piring',
-    'Tissue',
-    'Gas Masak',
-    'Lain-lain'
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterWeek, filterDay, filterCategory]);
+
+  // Options for custom dropdowns
+  const weekOptions = [
+    { value: 'all', label: 'Semua Minggu' },
+    { value: '1', label: 'Minggu 1 (M1)', badge: 'M1' },
+    { value: '2', label: 'Minggu 2 (M2)', badge: 'M2' },
+    { value: '3', label: 'Minggu 3 (M3)', badge: 'M3' },
+    { value: '4', label: 'Minggu 4 (M4)', badge: 'M4' },
+  ];
+
+  const dayOptions = [
+    { value: 'all', label: 'Semua Hari' },
+    { value: 'Senin', label: 'Hari Senin' },
+    { value: 'Selasa', label: 'Hari Selasa' },
+    { value: 'Rabu', label: 'Hari Rabu' },
+    { value: 'Kamis', label: 'Hari Kamis' },
+    { value: 'Jumat', label: 'Hari Jumat' },
+    { value: 'Sabtu', label: 'Hari Sabtu' },
+    { value: 'Minggu', label: 'Hari Minggu' },
+  ];
+
+  const categoryOptions = [
+    { value: 'all', label: 'Semua Kategori' },
+    { value: 'Isi Ulang Air', label: 'Isi Ulang Air', badge: '💧' },
+    { value: 'Sabun Cuci Piring', label: 'Sabun Cuci Piring', badge: '🧼' },
+    { value: 'Tissue', label: 'Tissue', badge: '🧻' },
+    { value: 'Gas Masak', label: 'Gas Masak', badge: '🍳' },
+    { value: 'Lain-lain', label: 'Lain-lain', badge: '📦' },
   ];
 
   // Filtered expenses (strictly 4 weeks)
@@ -70,6 +102,25 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     }
     return true;
   });
+
+  // Pagination logic: Strictly max 7 items per page, only paginate when > 7
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
+  const paginatedExpenses = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePageChange = (newPage: number) => {
+    const clamped = Math.max(1, Math.min(newPage, totalPages));
+    setCurrentPage(clamped);
+    mobileScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    desktopScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleDelete = (exp: Expense) => {
     if (!isAdmin) {
@@ -239,58 +290,43 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </div>
         </div>
 
-        {/* Filter Controls: Minggu -> Hari -> Kategori (No "Semua") */}
+        {/* Filter Controls: Minggu -> Hari -> Kategori (Custom App Dropdowns) */}
         <div className="mt-3.5 pt-3 border-t border-slate-800/80">
-          <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2 text-xs">
-            <div className="hidden sm:flex items-center text-slate-400 mr-1">
-              <Filter className="w-3.5 h-3.5 mr-1" />
+          <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2 text-xs">
+            <div className="hidden sm:flex items-center text-slate-400 mr-1 font-semibold">
+              <Filter className="w-3.5 h-3.5 mr-1 text-emerald-400" />
               <span>Filter:</span>
             </div>
 
             {/* 1. Minggu */}
-            <select
+            <CustomDropdown
               value={filterWeek}
-              onChange={(e) => setFilterWeek(e.target.value)}
-              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
-                filterWeek !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
-              }`}
-            >
-              <option value="all">Minggu</option>
-              <option value="1">M1</option>
-              <option value="2">M2</option>
-              <option value="3">M3</option>
-              <option value="4">M4</option>
-            </select>
+              onChange={(val) => setFilterWeek(val)}
+              options={weekOptions}
+              isActiveFilter={filterWeek !== 'all'}
+              icon={<Calendar className="w-3 h-3 hidden sm:inline" />}
+              className="w-full sm:w-40"
+            />
 
             {/* 2. Hari */}
-            <select
+            <CustomDropdown
               value={filterDay}
-              onChange={(e) => setFilterDay(e.target.value)}
-              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs transition ${
-                filterDay !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
-              }`}
-            >
-              {days.map((d) => (
-                <option key={d} value={d === 'Hari' ? 'all' : d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFilterDay(val)}
+              options={dayOptions}
+              isActiveFilter={filterDay !== 'all'}
+              className="w-full sm:w-36"
+            />
 
             {/* 3. Kategori */}
-            <select
+            <CustomDropdown
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className={`min-w-0 w-full sm:w-auto bg-slate-800 border text-slate-200 rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500 font-medium text-xs truncate transition ${
-                filterCategory !== 'all' ? 'border-emerald-500/60 text-emerald-300 bg-emerald-950/20' : 'border-slate-700'
-              }`}
-            >
-              {categoriesList.map((cat) => (
-                <option key={cat} value={cat === 'Kategori' ? 'all' : cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFilterCategory(val)}
+              options={categoryOptions}
+              isActiveFilter={filterCategory !== 'all'}
+              icon={<Tag className="w-3 h-3 hidden sm:inline" />}
+              align="right"
+              className="w-full sm:w-48"
+            />
 
             {(filterWeek !== 'all' || filterDay !== 'all' || filterCategory !== 'all') && (
               <button
@@ -299,7 +335,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                   setFilterDay('all');
                   setFilterCategory('all');
                 }}
-                className="col-span-3 sm:col-span-1 inline-flex items-center justify-center text-[11px] text-amber-400 hover:text-amber-300 font-semibold px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 active:scale-95 transition mt-1 sm:mt-0"
+                className="col-span-3 sm:col-span-1 inline-flex items-center justify-center text-[11px] text-amber-400 hover:text-amber-300 font-semibold px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 active:scale-95 transition mt-1 sm:mt-0"
                 title="Reset filter"
               >
                 <X className="w-3 h-3 mr-1" />
@@ -310,14 +346,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       </div>
 
-      {/* MOBILE VIEW (< 640px) Specifically optimized for Android & iOS */}
-      <div className="block sm:hidden divide-y divide-slate-800/80">
+      {/* MOBILE VIEW (< 640px) Specifically optimized for Android & iOS (Max 7 items per page + Scroll Up-Down) */}
+      <div
+        ref={mobileScrollRef}
+        className="block sm:hidden divide-y divide-slate-800/80 max-h-[350px] overflow-y-auto overscroll-contain scroll-smooth"
+      >
         {filtered.length === 0 ? (
           <div className="py-8 text-center text-slate-500 text-xs px-4">
             Belum ada catatan pengeluaran di periode ini.
           </div>
         ) : (
-          filtered.map((exp) => {
+          paginatedExpenses.map((exp) => {
             const badge = getCategoryBadge(exp.category);
             const Icon = badge.icon;
             const isDeleting = deletingId === exp.id;
@@ -425,10 +464,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         )}
       </div>
 
-      {/* DESKTOP TABLE VIEW (>= 640px) */}
-      <div className="hidden sm:block overflow-x-auto">
+      {/* DESKTOP TABLE VIEW (>= 640px) - Max 7 items per page + Scroll Up-Down */}
+      <div
+        ref={desktopScrollRef}
+        className="hidden sm:block overflow-x-auto max-h-[360px] overflow-y-auto overscroll-contain scroll-smooth"
+      >
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-800/60 text-slate-300 text-xs uppercase tracking-wider border-b border-slate-800">
+          <thead className="bg-slate-800/95 backdrop-blur-sm text-slate-300 text-xs uppercase tracking-wider border-b border-slate-800 sticky top-0 z-10">
             <tr>
               <th className="py-3 px-4 font-semibold">Hari & Tanggal</th>
               <th className="py-3 px-3 font-semibold">M</th>
@@ -447,7 +489,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 </td>
               </tr>
             ) : (
-              filtered.map((exp) => {
+              paginatedExpenses.map((exp) => {
                 const badge = getCategoryBadge(exp.category);
                 const Icon = badge.icon;
                 const isDeleting = deletingId === exp.id;
@@ -569,6 +611,68 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Footer Info & Pagination Controls (Strictly 7 items per page, page switcher when > 7) */}
+      {filtered.length > 0 && (
+        <div className="p-3.5 sm:px-6 sm:py-3.5 bg-slate-950/60 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-slate-400">
+          <div className="flex items-center space-x-2">
+            <span>
+              Menampilkan{' '}
+              <strong className="text-slate-200">
+                {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)}
+              </strong>{' '}
+              dari <strong className="text-slate-200">{filtered.length}</strong> pengeluaran
+            </span>
+            <span className="text-slate-600">•</span>
+            <span className="text-[11px] text-slate-400">
+              Maks. {ITEMS_PER_PAGE} / halaman (Scroll ↕)
+            </span>
+          </div>
+
+          {filtered.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center space-x-1.5">
+              <button
+                type="button"
+                onClick={() => handlePageChange(safePage - 1)}
+                disabled={safePage <= 1}
+                className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-200 border border-slate-700 transition active:scale-95"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 mr-0.5 text-emerald-400" />
+                <span>Prev</span>
+              </button>
+
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`w-7 h-7 rounded-xl text-xs font-extrabold transition active:scale-95 flex items-center justify-center border ${
+                      safePage === pageNum
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                        : 'bg-slate-800/80 text-slate-300 border-slate-700/80 hover:bg-slate-700 hover:text-white'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handlePageChange(safePage + 1)}
+                disabled={safePage >= totalPages}
+                className="inline-flex items-center px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none text-slate-200 border border-slate-700 transition active:scale-95"
+                title="Halaman Berikutnya"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5 ml-0.5 text-emerald-400" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Custom Sleek Delete / Reject Confirmation Pop-Up Modal */}
       {confirmTarget && (

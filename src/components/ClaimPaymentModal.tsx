@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Send, User, Calendar, CheckCircle2, DollarSign, Clock, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { Member } from '../types';
+import { Member, getActiveWeeksForMember } from '../types';
 
 interface ClaimPaymentModalProps {
   isOpen: boolean;
@@ -42,11 +42,18 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialMemberId) setSelectedMemberId(initialMemberId);
-      if (initialWeek) setSelectedWeeks([initialWeek]);
+      const mId = initialMemberId || members[0]?.id || 1;
+      setSelectedMemberId(mId);
+      const selectedMember = members.find((m) => m.id === mId);
+      const activeWeeks = getActiveWeeksForMember(selectedMember?.name || '', year, month);
+      if (initialWeek && activeWeeks.includes(initialWeek)) {
+        setSelectedWeeks([initialWeek]);
+      } else {
+        setSelectedWeeks([activeWeeks[0] || 1]);
+      }
       setIsSuccess(false);
     }
-  }, [isOpen, initialMemberId, initialWeek]);
+  }, [isOpen, initialMemberId, initialWeek, members, year, month]);
 
   // Android Back button support & ESC
   useEffect(() => {
@@ -67,7 +74,11 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
 
   if (!isOpen) return null;
 
+  const selectedMember = members.find((m) => m.id === selectedMemberId);
+  const activeWeeks = getActiveWeeksForMember(selectedMember?.name || '', year, month);
+
   const toggleWeek = (w: number) => {
+    if (!activeWeeks.includes(w)) return;
     if (selectedWeeks.includes(w)) {
       if (selectedWeeks.length > 1) {
         setSelectedWeeks(selectedWeeks.filter((week) => week !== w));
@@ -78,7 +89,7 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
   };
 
   const selectFullMonth = () => {
-    setSelectedWeeks([1, 2, 3, 4]);
+    setSelectedWeeks([...activeWeeks]);
   };
 
   const totalAmount = selectedWeeks.length * 5000;
@@ -172,8 +183,15 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
                   <button
                     type="button"
                     key={m.id}
-                    onClick={() => setSelectedMemberId(m.id)}
-                    className={`py-2 px-2 rounded-xl text-xs font-semibold transition border ${
+                    onClick={() => {
+                      setSelectedMemberId(m.id);
+                      const mActive = getActiveWeeksForMember(m.name, year, month);
+                      setSelectedWeeks((prev) => {
+                        const valid = prev.filter((w) => mActive.includes(w));
+                        return valid.length > 0 ? valid : [mActive[0] || 1];
+                      });
+                    }}
+                    className={`py-2 px-2 rounded-xl text-xs font-semibold transition border truncate ${
                       selectedMemberId === m.id
                         ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
                         : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-750'
@@ -197,26 +215,30 @@ export const ClaimPaymentModal: React.FC<ClaimPaymentModalProps> = ({
                   onClick={selectFullMonth}
                   className="text-[11px] font-bold text-emerald-400 hover:underline"
                 >
-                  ⚡ 1 Bulan (M1-M4)
+                  ⚡ {activeWeeks.length < 4 ? `Semua Minggu Aktif (M${activeWeeks[0]}-M${activeWeeks[activeWeeks.length - 1]})` : '1 Bulan (M1-M4)'}
                 </button>
               </div>
 
               <div className="grid grid-cols-4 gap-1.5">
                 {[1, 2, 3, 4].map((w) => {
-                  const isChecked = selectedWeeks.includes(w);
+                  const isWeekActive = activeWeeks.includes(w);
+                  const isChecked = isWeekActive && selectedWeeks.includes(w);
                   return (
                     <button
                       type="button"
                       key={w}
+                      disabled={!isWeekActive}
                       onClick={() => toggleWeek(w)}
                       className={`py-2 rounded-xl text-xs font-bold border transition flex flex-col items-center justify-center ${
-                        isChecked
-                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'
+                        !isWeekActive
+                          ? 'bg-slate-900/50 text-slate-600 border-slate-800/70 cursor-not-allowed opacity-60'
+                          : isChecked
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'
                       }`}
                     >
                       <span className="text-sm font-extrabold">M{w}</span>
-                      <span className="text-[10px] opacity-80">5rb</span>
+                      <span className="text-[10px] opacity-80">{isWeekActive ? '5rb' : '—'}</span>
                     </button>
                   );
                 })}

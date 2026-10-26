@@ -14,11 +14,13 @@ import {
   Clock
 } from 'lucide-react';
 import { SystemInfo } from '../types';
+import { CustomDropdown } from './CustomDropdown';
 
 interface NavbarProps {
   currentYear: number;
   currentMonth: number;
   onChangeMonth: (delta: number) => void;
+  onSelectMonth?: (month: number) => void;
   systemInfo: SystemInfo | null;
   isAdmin: boolean;
   onOpenAdminLogin: () => void;
@@ -47,6 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentYear,
   currentMonth,
   onChangeMonth,
+  onSelectMonth,
   isAdmin,
   onOpenAdminLogin,
   onLogoutAdmin,
@@ -82,14 +85,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Rp 5.000 / M
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-400 hidden sm:block truncate max-w-xs md:max-w-md">
-                Bayu • Apip • Ian • Ray • Dola • <strong>Vier (Admin)</strong>
+              <p className="text-[11px] sm:text-xs text-slate-400 hidden sm:block truncate max-w-xs md:max-w-lg">
+                Bayu • Apip • Ian • Ray • Dola • James_Dely • <strong>Vier (Admin)</strong>
               </p>
             </div>
           </div>
 
-          {/* 2. Month & Year Navigation (Ultra-Fit for All Mobile Screens) */}
-          <div className="flex items-center bg-slate-800/90 rounded-xl p-0.5 sm:p-1 border border-slate-700/70 shadow-inner shrink-0">
+          {/* 2. Month & Year Navigation with Custom App Dropdown */}
+          <div className="flex items-center bg-slate-800/90 rounded-xl p-0.5 sm:p-1 border border-slate-700/70 shadow-inner shrink-0 gap-0.5">
             <button
               onClick={() => onChangeMonth(-1)}
               className="p-1 sm:p-1.5 rounded-lg hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition"
@@ -97,14 +100,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
-            <div className="px-1.5 sm:px-3.5 py-1 text-center min-w-[72px] sm:min-w-[125px]">
-              <span className="font-bold text-[11px] sm:text-sm text-white whitespace-nowrap sm:hidden">
-                {SHORT_MONTH_NAMES[currentMonth - 1]} {currentYear}
-              </span>
-              <span className="font-bold text-xs sm:text-sm text-white whitespace-nowrap hidden sm:inline">
-                {MONTH_NAMES[currentMonth - 1]} {currentYear}
-              </span>
-            </div>
+            <CustomDropdown
+              value={currentMonth}
+              onChange={(val) => {
+                const targetMonth = Number(val);
+                if (onSelectMonth) {
+                  onSelectMonth(targetMonth);
+                } else {
+                  onChangeMonth(targetMonth - currentMonth);
+                }
+              }}
+              options={MONTH_NAMES.map((mName, idx) => ({
+                value: idx + 1,
+                label: `${mName} ${currentYear}`,
+                badge: SHORT_MONTH_NAMES[idx],
+              }))}
+              className="w-[106px] sm:w-[148px]"
+              buttonClassName="!bg-transparent !border-transparent !shadow-none !px-1.5 sm:!px-2.5 !py-1 text-[11px] sm:text-xs font-extrabold text-white hover:!bg-slate-700/60"
+            />
             <button
               onClick={() => onChangeMonth(1)}
               className="p-1 sm:p-1.5 rounded-lg hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white transition"

@@ -13,7 +13,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { ClaimPaymentModal } from './components/ClaimPaymentModal';
 import { VerificationModal } from './components/VerificationModal';
 import { api } from './services/api';
-import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem } from './types';
+import { Member, MemberWeeklyRow, Expense, SummaryData, SystemInfo, PendingVerificationItem, SecurityAlertItem, getActiveWeeksForMember } from './types';
 import { Eye, ShieldCheck, Lock, Clock, ShieldAlert, X } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -256,8 +256,9 @@ export const App: React.FC = () => {
     setMatrix((prev) =>
       prev.map((row) => {
         if (row.member.id !== memberId) return row;
+        const activeWeeks = getActiveWeeksForMember(row.member.name, currentYear, currentMonth);
         const updatedWeeks = { ...row.weeks };
-        for (const w of [1, 2, 3, 4]) {
+        for (const w of activeWeeks) {
           updatedWeeks[w] = {
             ...updatedWeeks[w],
             is_paid: 1,
@@ -418,6 +419,7 @@ export const App: React.FC = () => {
         currentYear={currentYear}
         currentMonth={currentMonth}
         onChangeMonth={handleChangeMonth}
+        onSelectMonth={(m) => setCurrentMonth(m)}
         systemInfo={systemInfo}
         isAdmin={isAdmin}
         onOpenAdminLogin={() => handleRequestAdminLogin()}
@@ -588,7 +590,7 @@ export const App: React.FC = () => {
       <footer className="border-t border-slate-900 bg-[#090d16] py-6 text-center text-xs text-slate-500 mb-20 sm:mb-0">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>
-            Uang Kas Kontrakan • Bayu, Apip, Ian, Ray, Dola, Vier (Admin) • Rp 5.000 / M (4 M / bln)
+            Uang Kas Kontrakan • Bayu, Apip, Ian, Ray, Dola, James_Dely, Vier (Admin) • Rp 5.000 / M (4 M / bln)
           </p>
           <div className="flex items-center space-x-3 text-slate-400">
             <button 

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { MemberWeeklyRow, Expense, SummaryData } from '../types';
+import { MemberWeeklyRow, Expense, SummaryData, getActiveWeeksForMember } from '../types';
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -35,7 +35,7 @@ export const exportToExcel = (
     [],
     ['ATURAN KAS:'],
     ['- Iuran mingguan: Rp 5.000 / M'],
-    ['- Anggota: Bayu, Apip, Ian, Ray, Dola, Vier'],
+    ['- Anggota: Bayu, Apip, Ian, Ray, Dola, James_Dely, Vier'],
     ['- Pengeluaran: Air, Sabun, Tissue, Gas Masak'],
     ['- Target Martabak: Saldo ~Rp 50.000 untuk martabak bersama!'],
   ];
@@ -56,8 +56,13 @@ export const exportToExcel = (
   ];
 
   const iuranRows = matrix.map((row, idx) => {
+    const activeWeeks = getActiveWeeksForMember(row.member.name, year, month);
+    const targetAmount = activeWeeks.length * 5000;
     let totalPaid = 0;
     const weekStatuses = [1, 2, 3, 4].map((w) => {
+      if (!activeWeeks.includes(w) || row.weeks[w]?.status === 'not_joined') {
+        return 'Belum Ikut (-)';
+      }
       const contrib = row.weeks[w];
       if (contrib && contrib.is_paid) {
         totalPaid += contrib.amount || 5000;
@@ -66,7 +71,7 @@ export const exportToExcel = (
       return 'Belum';
     });
 
-    const isFullyPaid = totalPaid >= 20000;
+    const isFullyPaid = totalPaid >= targetAmount;
 
     return [
       idx + 1,
@@ -76,7 +81,11 @@ export const exportToExcel = (
       weekStatuses[2],
       weekStatuses[3],
       totalPaid,
-      isFullyPaid ? 'LUNAS (4 M)' : 'ADA TUNGGAKAN'
+      isFullyPaid
+        ? activeWeeks.length < 4
+          ? 'LUNAS (M3-M4)'
+          : 'LUNAS (4 M)'
+        : 'ADA TUNGGAKAN'
     ];
   });
 

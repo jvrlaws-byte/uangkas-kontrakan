@@ -12,10 +12,13 @@ import {
   BarChart3,
   Eye
 } from 'lucide-react';
-import { MemberWeeklyRow, Expense, SummaryData } from '../types';
+import { MemberWeeklyRow, Expense, SummaryData, getActiveWeeksForMember } from '../types';
 import { exportToExcel } from '../services/exportExcel';
 import { exportToPdf } from '../services/exportPdf';
 import { api } from '../services/api';
+import { CustomDropdown } from './CustomDropdown';
+
+const REPORT_EXPENSES_PER_PAGE = 7;
 
 interface MonthlyReportModalProps {
   isOpen: boolean;
@@ -46,6 +49,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
   onSelectMonth,
 }) => {
   const [activeTab, setActiveTab] = useState<'monthly' | 'yearly'>('monthly');
+  const [expensePage, setExpensePage] = useState<number>(1);
   const [yearlyData, setYearlyData] = useState<Array<{
     month: number;
     income: number;
@@ -100,11 +104,19 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
     };
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    setExpensePage(1);
+  }, [month, year, isOpen]);
+
   if (!isOpen) return null;
 
   const monthName = MONTH_NAMES[month - 1];
   const formatRp = (val: number) => `Rp ${val.toLocaleString('id-ID')}`;
   const verifiedExpenses = expenses.filter((e) => e.pending_verification !== 1);
+  const totalExpensePages = Math.max(1, Math.ceil(verifiedExpenses.length / REPORT_EXPENSES_PER_PAGE));
+  const safeExpensePage = Math.min(expensePage, totalExpensePages);
+  const expStartIdx = (safeExpensePage - 1) * REPORT_EXPENSES_PER_PAGE;
+  const paginatedVerifiedExpenses = verifiedExpenses.slice(expStartIdx, expStartIdx + REPORT_EXPENSES_PER_PAGE);
 
   const handleDownloadExcel = () => {
     exportToExcel(year, month, summary, matrix, verifiedExpenses);
@@ -225,10 +237,10 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                 </button>
               )}
 
-              <select
+              <CustomDropdown
                 value={month}
-                onChange={(e) => {
-                  const targetM = Number(e.target.value);
+                onChange={(val) => {
+                  const targetM = Number(val);
                   if (onSelectMonth) {
                     onSelectMonth(targetM);
                   } else if (onChangeMonth) {
@@ -236,14 +248,14 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                   }
                   setActiveTab('monthly');
                 }}
-                className="bg-transparent text-xs sm:text-sm font-bold text-emerald-400 focus:outline-none cursor-pointer px-2 py-1"
-              >
-                {MONTH_NAMES.map((mName, idx) => (
-                  <option key={mName} value={idx + 1} className="bg-slate-900 text-white">
-                    {mName} {year}
-                  </option>
-                ))}
-              </select>
+                options={MONTH_NAMES.map((mName, idx) => ({
+                  value: idx + 1,
+                  label: `${mName} ${year}`,
+                }))}
+                isActiveFilter
+                align="right"
+                className="w-40 sm:w-44"
+              />
 
               {onChangeMonth && (
                 <button
@@ -432,11 +444,14 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-800/80 bg-slate-900/40">
                       {matrix.map((row) => {
+                        const activeWeeks = getActiveWeeksForMember(row.member.name, year, month);
+                        const targetAmount = activeWeeks.length * 5000;
+                        const isPartialMonth = activeWeeks.length < 4;
                         let total = 0;
-                        [1, 2, 3, 4].forEach((w) => {
+                        activeWeeks.forEach((w) => {
                           if (row.weeks[w]?.is_paid) total += row.weeks[w]?.amount || 5000;
                         });
-                        const isAll = total >= 20000;
+                        const isAll = total >= targetAmount;
 
                         return (
                           <tr key={row.member.id}>
@@ -445,24 +460,36 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                               {row.member.name.toLowerCase() === 'vier' && (
                                 <span className="ml-1 text-[10px] text-amber-400 font-bold">(Admin)</span>
                               )}
+                              {isPartialMonth && (
+                                <span className="ml-1 text-[10px] text-blue-400 font-bold">(M3-M4)</span>
+                              )}
                             </td>
-                            {[1, 2, 3, 4].map((w) => (
-                              <td key={w} className="py-2.5 px-2 text-center">
-                                {row.weeks[w]?.is_paid ? (
-                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold">✓</span>
-                                ) : row.weeks[w]?.pending_verification === 1 ? (
-                                  <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">Verif</span>
-                                ) : (
-                                  <span className="text-slate-600">-</span>
-                                )}
-                              </td>
-                            ))}
+                            {[1, 2, 3, 4].map((w) => {
+                              const isWeekActive = activeWeeks.includes(w) && row.weeks[w]?.status !== 'not_joined';
+                              return (
+                                <td key={w} className="py-2.5 px-2 text-center">
+                                  {!isWeekActive ? (
+                                    <span className="text-slate-600 text-[10px]">—</span>
+                                  ) : row.weeks[w]?.is_paid ? (
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold">✓</span>
+                                  ) : row.weeks[w]?.pending_verification === 1 ? (
+                                    <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">Verif</span>
+                                  ) : (
+                                    <span className="text-slate-600">-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
                             <td className="py-2.5 px-3 text-right font-bold text-slate-200">{formatRp(total)}</td>
                             <td className="py-2.5 px-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                 isAll ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'
                               }`}>
-                                {isAll ? 'LUNAS' : `KURANG ${formatRp(20000 - total)}`}
+                                {isAll
+                                  ? isPartialMonth
+                                    ? 'LUNAS (M3-M4)'
+                                    : 'LUNAS'
+                                  : `KURANG ${formatRp(targetAmount - total)}`}
                               </span>
                             </td>
                           </tr>
@@ -484,9 +511,9 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                     Total: {formatRp(summary.monthlyExpense)}
                   </span>
                 </h4>
-                <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-64">
+                <div className="overflow-x-auto rounded-xl border border-slate-800 max-h-60 overflow-y-auto overscroll-contain">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-slate-800 text-slate-300 uppercase sticky top-0">
+                    <thead className="bg-slate-800 text-slate-300 uppercase sticky top-0 z-10">
                       <tr>
                         <th className="py-2.5 px-3">Hari & Tanggal</th>
                         <th className="py-2.5 px-2">M</th>
@@ -504,7 +531,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                           </td>
                         </tr>
                       ) : (
-                        verifiedExpenses.map((exp) => (
+                        paginatedVerifiedExpenses.map((exp) => (
                           <tr key={exp.id}>
                             <td className="py-2.5 px-3 text-white font-medium whitespace-nowrap">
                               {exp.day_name}, {exp.date}
@@ -522,6 +549,35 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                     </tbody>
                   </table>
                 </div>
+
+                {verifiedExpenses.length > REPORT_EXPENSES_PER_PAGE && (
+                  <div className="flex items-center justify-between pt-1.5 text-xs text-slate-400">
+                    <span>
+                      Menampilkan <strong>{expStartIdx + 1}–{Math.min(expStartIdx + REPORT_EXPENSES_PER_PAGE, verifiedExpenses.length)}</strong> dari <strong>{verifiedExpenses.length}</strong> pengeluaran
+                    </span>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpensePage((p) => Math.max(1, p - 1))}
+                        disabled={safeExpensePage <= 1}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 font-bold"
+                      >
+                        Prev
+                      </button>
+                      <span className="px-2 font-bold text-emerald-400">
+                        Hal. {safeExpensePage} / {totalExpensePages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExpensePage((p) => Math.min(totalExpensePages, p + 1))}
+                        disabled={safeExpensePage >= totalExpensePages}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 font-bold"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

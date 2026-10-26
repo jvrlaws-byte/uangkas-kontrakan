@@ -14,7 +14,7 @@ import {
   AlertCircle,
   FileSpreadsheet
 } from 'lucide-react';
-import { MemberWeeklyRow } from '../types';
+import { MemberWeeklyRow, getActiveWeeksForMember } from '../types';
 
 interface WeeklyKasMatrixProps {
   matrix: MemberWeeklyRow[];
@@ -227,10 +227,15 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
       <div className={`p-3 sm:hidden space-y-3 ${viewMode === 'cards' ? 'block' : 'hidden'}`}>
         {matrix.map((row) => {
           const { member, weeks: memberWeeks } = row;
+          const activeWeeks = getActiveWeeksForMember(member.name, year, month);
+          const targetWeeksCount = activeWeeks.length;
+          const targetAmount = targetWeeksCount * 5000;
+          const isPartialMonth = targetWeeksCount < 4;
+
           let totalPaid = 0;
           let paidCount = 0;
           let pendingInRow = 0;
-          weeks.forEach((w) => {
+          activeWeeks.forEach((w) => {
             if (memberWeeks[w]?.is_paid) {
               totalPaid += memberWeeks[w]?.amount || 5000;
               paidCount++;
@@ -238,7 +243,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
               pendingInRow++;
             }
           });
-          const isAllPaid = paidCount >= 4;
+          const isAllPaid = paidCount >= targetWeeksCount;
 
           return (
             <div
@@ -252,11 +257,16 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                     {member.name.charAt(0)}
                   </div>
                   <div>
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <h4 className="font-bold text-white text-sm">{member.name}</h4>
                       {['vier', 'javier'].includes(member.name.toLowerCase()) && (
                         <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-bold">
                           Admin
+                        </span>
+                      )}
+                      {isPartialMonth && (
+                        <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-bold">
+                          Ikut M3-M4
                         </span>
                       )}
                       {pendingInRow > 0 && (
@@ -267,7 +277,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                       )}
                     </div>
                     <span className="text-[11px] text-slate-400">
-                      Total: <strong className="text-emerald-400 font-bold">Rp {totalPaid.toLocaleString('id-ID')}</strong> / 20.000
+                      Total: <strong className="text-emerald-400 font-bold">Rp {totalPaid.toLocaleString('id-ID')}</strong> / {targetAmount.toLocaleString('id-ID')}
                     </span>
                   </div>
                 </div>
@@ -275,7 +285,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                 <div>
                   {isAllPaid ? (
                     <span className="inline-flex items-center text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/30">
-                      <CheckCircle2 className="w-3 h-3 mr-1" /> Lunas 1 Bln
+                      <CheckCircle2 className="w-3 h-3 mr-1" /> {isPartialMonth ? 'Lunas M3-M4' : 'Lunas 1 Bln'}
                     </span>
                   ) : isAdmin ? (
                     <button
@@ -284,7 +294,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                       className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 active:scale-95 transition"
                     >
                       <Sparkles className="w-3 h-3 mr-1 text-amber-400" />
-                      Lunas 1 Bln
+                      {isPartialMonth ? 'Lunas M3-M4' : 'Lunas 1 Bln'}
                     </button>
                   ) : (
                     <button
@@ -300,11 +310,25 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
               {/* 4 Weeks Touch-Friendly Buttons */}
               <div>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
-                  Iuran Mingguan (M1 - M4):
+                  Iuran Mingguan ({isPartialMonth ? 'Khusus Bulan Ini: M3 - M4' : 'M1 - M4'}):
                 </span>
                 <div className="grid grid-cols-4 gap-2">
                   {weeks.map((w) => {
                     const contrib = memberWeeks[w];
+                    const isWeekActive = activeWeeks.includes(w) && contrib?.status !== 'not_joined';
+                    if (!isWeekActive) {
+                      return (
+                        <div
+                          key={w}
+                          className="h-12 rounded-xl text-xs font-semibold bg-slate-900/50 text-slate-600 border border-slate-800/70 flex flex-col items-center justify-center space-y-0.5 select-none opacity-60"
+                          title={`${member.name} baru ikut di M3 & M4 pada bulan ini`}
+                        >
+                          <span className="text-xs font-bold opacity-70">M{w}</span>
+                          <span className="text-[10px] font-medium">—</span>
+                        </div>
+                      );
+                    }
+
                     const isPaid = contrib?.is_paid === 1;
                     const isPending = !isPaid && contrib?.pending_verification === 1;
                     const cellKey = `${member.id}_${w}`;
@@ -381,17 +405,21 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
           <tbody className="divide-y divide-slate-800/60">
             {matrix.map((row) => {
               const { member, weeks: memberWeeks } = row;
+              const activeWeeks = getActiveWeeksForMember(member.name, year, month);
+              const targetWeeksCount = activeWeeks.length;
+              const targetAmount = targetWeeksCount * 5000;
+              const isPartialMonth = targetWeeksCount < 4;
               
               let totalPaid = 0;
               let paidCount = 0;
-              weeks.forEach((w) => {
+              activeWeeks.forEach((w) => {
                 if (memberWeeks[w]?.is_paid) {
                   totalPaid += memberWeeks[w]?.amount || 5000;
                   paidCount++;
                 }
               });
 
-              const isAllPaid = paidCount >= 4;
+              const isAllPaid = paidCount >= targetWeeksCount;
 
               return (
                 <tr key={member.id} className="hover:bg-slate-800/30 transition">
@@ -399,23 +427,30 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                   {/* Member Name */}
                   <td className="py-3.5 px-4 font-medium text-white sticky left-0 bg-slate-900/95 z-10">
                     <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-emerald-400">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
                         {member.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-bold text-slate-200 flex items-center space-x-1">
+                        <div className="font-bold text-slate-200 flex flex-wrap items-center gap-1">
                           <span>{member.name}</span>
                           {['vier', 'javier'].includes(member.name.toLowerCase()) && (
                             <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1 py-0.2 rounded font-bold">
                               Admin
                             </span>
                           )}
+                          {isPartialMonth && (
+                            <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded font-bold">
+                              M3-M4
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-400">
                           {isAllPaid ? (
-                            <span className="text-emerald-400 font-medium">Lunas 4 Minggu ✓</span>
+                            <span className="text-emerald-400 font-medium">
+                              {isPartialMonth ? 'Lunas M3 & M4 ✓' : 'Lunas 4 Minggu ✓'}
+                            </span>
                           ) : (
-                            <span className="text-amber-400/90 font-medium">{4 - paidCount} M belum</span>
+                            <span className="text-amber-400/90 font-medium">{targetWeeksCount - paidCount} M belum</span>
                           )}
                         </div>
                       </div>
@@ -425,6 +460,20 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                   {/* Weeks 1 - 4 Columns */}
                   {weeks.map((w) => {
                     const contrib = memberWeeks[w];
+                    const isWeekActive = activeWeeks.includes(w) && contrib?.status !== 'not_joined';
+                    if (!isWeekActive) {
+                      return (
+                        <td key={w} className="py-3 px-3 text-center">
+                          <div
+                            className="w-full py-2 px-2 rounded-xl text-xs font-medium bg-slate-900/40 text-slate-600 border border-slate-800/60 flex items-center justify-center select-none"
+                            title={`${member.name} baru ikut di M3 & M4 pada bulan ini`}
+                          >
+                            <span>Belum Ikut</span>
+                          </div>
+                        </td>
+                      );
+                    }
+
                     const isPaid = contrib?.is_paid === 1;
                     const isPending = !isPaid && contrib?.pending_verification === 1;
                     const cellKey = `${member.id}_${w}`;
@@ -481,24 +530,26 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                     <span className="font-bold text-white text-sm">
                       Rp {totalPaid.toLocaleString('id-ID')}
                     </span>
-                    <span className="text-[10px] text-slate-500 block">dari Rp 20.000</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      dari Rp {targetAmount.toLocaleString('id-ID')}
+                    </span>
                   </td>
 
                   {/* Batch Action */}
                   <td className="py-3.5 px-4 text-center">
                     {isAllPaid ? (
                       <span className="inline-flex items-center text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Lengkap
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {isPartialMonth ? 'Lunas M3-M4' : 'Lengkap'}
                       </span>
                     ) : isAdmin ? (
                       <button
                         onClick={() => handleBatch(member.id)}
                         disabled={loadingCell === `batch_${member.id}`}
                         className="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95"
-                        title="Tandai bayar lunas seluruh 4 minggu bulan ini"
+                        title="Tandai bayar lunas seluruh minggu aktif bulan ini"
                       >
                         <Sparkles className="w-3 h-3 mr-1 text-amber-400" />
-                        Lunas 1 Bulan
+                        {isPartialMonth ? 'Lunas M3-M4' : 'Lunas 1 Bulan'}
                       </button>
                     ) : (
                       <button
