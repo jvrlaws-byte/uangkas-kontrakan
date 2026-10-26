@@ -138,7 +138,7 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
           </div>
           <p className="text-xs text-slate-400 mt-1">
             {isAdmin 
-              ? 'Admin (Vier): Klik kotak untuk verifikasi atau ubah status.' 
+              ? 'Admin (Vier): Klik M1–M4 untuk tandai Bayar, atau klik lagi kotak Lunas untuk batalkan (Tidak Bayar).' 
               : 'Mode Teman: Klik kotak untuk lapor pembayaran ke Vier.'}
           </p>
         </div>
@@ -352,7 +352,9 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                           isPending 
                             ? `Menunggu verifikasi Vier (Klik untuk proses)` 
                             : isPaid 
-                              ? `Lunas M${w}` 
+                              ? isAdmin
+                                ? `Sudah Lunas M${w} — Klik lagi untuk batalkan (Jadi Tidak Bayar)`
+                                : `Lunas M${w}` 
                               : isAdmin 
                                 ? `Tandai lunas M${w}` 
                                 : `Klik untuk lapor sudah bayar M${w}`
@@ -484,9 +486,11 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                         <button
                           onClick={() => handleCellClick(member.id, w, isPaid, isPending, contrib?.id || `${member.id}_${year}_${month}_${w}`, member.name)}
                           disabled={isLoading}
-                          className={`w-full py-2 px-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1 active:scale-95 ${
+                          className={`group w-full py-2 px-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1 active:scale-95 ${
                             isPaid
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25 shadow-sm shadow-emerald-500/10'
+                              ? isAdmin
+                                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/50 shadow-sm shadow-emerald-500/10'
+                                : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/25 shadow-sm shadow-emerald-500/10'
                               : isPending
                                 ? 'bg-amber-500/25 text-amber-300 border border-amber-500/60 hover:bg-amber-500/35 animate-pulse'
                                 : isAdmin
@@ -497,17 +501,28 @@ export const WeeklyKasMatrix: React.FC<WeeklyKasMatrixProps> = ({
                             isPending 
                               ? `Menunggu verifikasi Vier` 
                               : isPaid 
-                                ? `Lunas` 
+                                ? isAdmin
+                                  ? `Sudah Lunas M${w} — Klik lagi untuk batalkan (Jadi Tidak Bayar)`
+                                  : `Lunas` 
                                 : isAdmin 
                                   ? `Tandai lunas` 
                                   : `Klik untuk lapor bayar`
                           }
                         >
                           {isPaid ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
-                              <span>Rp 5.000</span>
-                            </>
+                            isAdmin ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3] group-hover:hidden" />
+                                <span className="group-hover:hidden">Rp 5.000</span>
+                                <XCircle className="w-3.5 h-3.5 text-rose-400 hidden group-hover:inline-block" />
+                                <span className="hidden group-hover:inline text-rose-300 font-bold">Batal Bayar</span>
+                              </>
+                            ) : (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+                                <span>Rp 5.000</span>
+                              </>
+                            )
                           ) : isPending ? (
                             <>
                               <Clock className="w-3 h-3 text-amber-400 animate-spin" />

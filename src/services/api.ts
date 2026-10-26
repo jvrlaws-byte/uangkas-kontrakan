@@ -66,17 +66,23 @@ const fetchWithSync = async (url: string, options: RequestInit = {}): Promise<Re
   });
 
   const newSnapshot = res.headers.get('x-uangkas-snapshot');
-  if (newSnapshot) {
+  if (newSnapshot && res.ok) {
     try {
       const currentSnap = localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '';
-      if (!currentSnap) {
+      const isWriteAction = Boolean(options.method && options.method.toUpperCase() !== 'GET');
+      if (!currentSnap || isWriteAction) {
+        // Always persist snapshot after any explicit POST / PUT / DELETE action (including un-paying M1-M4!)
         localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
       } else {
         const curMeta = getSnapshotRichness(currentSnap);
         const newMeta = getSnapshotRichness(newSnapshot);
-        // Only overwrite if newSnapshot is not a downgraded seed and has absorbed user history
-        if (newMeta.version > 0 && (newMeta.richness >= curMeta.richness || options.method === 'DELETE')) {
-          localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+        const isServerColdSeed = newMeta.version <= 1792224500000;
+        if (newMeta.version > 0) {
+          if (!isServerColdSeed && newMeta.version >= curMeta.version) {
+            localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+          } else if (isServerColdSeed && newMeta.richness >= curMeta.richness) {
+            localStorage.setItem(SNAPSHOT_STORAGE_KEY, newSnapshot);
+          }
         }
       }
     } catch {

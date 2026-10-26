@@ -269,20 +269,17 @@ const ensureJamesDelySeeded = () => {
       // Remove any accidental M1 or M2 records in Oct 2026 for James_Deli
       db.prepare('DELETE FROM contributions WHERE member_id = ? AND year = 2026 AND month = 10 AND week IN (1, 2)').run(james.id);
 
-      // Seed M3 & M4 in Oct 2026 as paid if not yet present
-      const upsertPaid = db.prepare(`
+      // Seed M3 & M4 in Oct 2026 as paid only if no record exists yet (so Admin Vier can still toggle/unpay if needed)
+      const insertInitialPaid = db.prepare(`
         INSERT INTO contributions (
           id, member_id, year, month, week, amount, is_paid, paid_at, notes,
           pending_verification, status, payer_note, claimed_at, verified_at
         ) VALUES (?, ?, 2026, 10, ?, 5000, 1, '2026-10-21T10:00:00.000Z', 'Mulai ikut di M3 & M4', 0, 'verified', 'Cash', NULL, '2026-10-21T10:00:00.000Z')
-        ON CONFLICT(id) DO UPDATE SET
-          amount = 5000,
-          is_paid = 1,
-          pending_verification = 0,
-          status = 'verified'
+        ON CONFLICT(id) DO NOTHING
       `);
       for (const w of [3, 4]) {
-        upsertPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
+        const res = insertInitialPaid.run(`${james.id}_2026_10_${w}`, james.id, w);
+        if (res.changes > 0) changed = true;
       }
     }
     // Ensure martabak_target is 100000 (100K)
@@ -547,10 +544,15 @@ const syncIncomingSnapshot = (tokenStr) => {
     const localExpCount = db.prepare('SELECT COUNT(*) as cnt FROM expenses').get().cnt;
     const localRichness = Number(localPaidCount) * 10 + Number(localExpCount);
 
-    if (incomingVer > localVer || incomingRichness > localRichness) {
+    const isLocalStillColdSeed = localVer <= INITIAL_SNAPSHOT.version;
+
+    // Restore client snapshot if:
+    // 1. Client snapshot has a strictly newer version timestamp than local DB, OR
+    // 2. Local DB is a fresh cold-started serverless seed and client snapshot has richer user history
+    if (incomingVer > localVer || (isLocalStillColdSeed && incomingRichness > localRichness)) {
       applySnapshotToDb(parsed);
       ensureJamesDelySeeded();
-      const mergedVer = Math.max(incomingVer, localVer, Date.now());
+      const mergedVer = Math.max(incomingVer, localVer);
       setSetting('db_version', String(mergedVer));
     }
   } catch (err) {
